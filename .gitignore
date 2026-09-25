@@ -1,0 +1,7 @@
+node_modules/
+.svelte-kit/
+*.local
+*.tgz
+
+# Internal design notes: kept locally, never published.
+internal-docs/
