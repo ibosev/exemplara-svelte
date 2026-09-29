@@ -134,7 +134,7 @@
     const style = { ...containerView.style };
     if (nodeShellStyle) {
       for (const key of ['position', 'top', 'right', 'bottom', 'left', 'inset', 'z-index', 'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left']) delete style[key];
-      if (containerView.style.top !== undefined && containerView.style.bottom !== undefined) style.height = '100%';
+      if ((style.height === undefined || style.height === '') && containerView.style.top !== undefined && containerView.style.bottom !== undefined) style.height = '100%';
     }
     return styleString(style);
   });
