@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { bindUiState } from './ui-state.js';
   import { getEditorContext } from './context.svelte.js';
   import { render } from '../renderer/render.js';
   import { renderWeb } from '../renderer/web.js';
@@ -11,13 +12,11 @@
   const dataResolutionEnabled = editor.isProvidedCapabilityEnabled('data.resolve');
   const webDocument = $derived(isWebDocument(editor.doc));
 
-  let withData = $state(dataResolutionEnabled);
+  const uiModel = $derived(editor.session.ui.get('preview'));
+  const ui = $derived(bindUiState(uiModel));
   /** Print-accurate sheets (exact paper height, pinned footers, clipping) vs free-flowing pages. */
-  let sheetMode = $state(true);
-  let showGuides = $state(true);
-  let iframe = $state<HTMLIFrameElement | null>(null);
 
-  let overflows = $state<SheetOverflow[]>([]);
+  let iframe = $state<HTMLIFrameElement | null>(null);
 
   const PREVIEW_CSS = `
 @media screen {
@@ -27,12 +26,12 @@
 
   // Fully rendered document, live-updated while the preview is open.
   const fullHtml = $derived.by(() => {
-    const dataContext = withData ? editor.getDataContext() : {};
+    const dataContext = ui.withData ? editor.getDataContext() : {};
     if (webDocument) {
       return renderWeb(editor.engine.snapshot(), {
         pageIndex: editor.activePageIndex,
         dataContext,
-        resolveData: dataResolutionEnabled && withData,
+        resolveData: dataResolutionEnabled && ui.withData,
         expressionRuntime: editor.expressionRuntime,
         runtime: editor.renderRuntime,
         extraCss: 'body { min-height: 100vh; }',
@@ -40,9 +39,9 @@
     }
     return render(editor.engine.snapshot(), {
       dataContext,
-      resolveData: dataResolutionEnabled && withData,
-      sheetMode: sheetMode ? 'fixed' : 'flow',
-      showMarginGuides: showGuides,
+      resolveData: dataResolutionEnabled && ui.withData,
+      sheetMode: ui.sheetMode ? 'fixed' : 'flow',
+      showMarginGuides: ui.showGuides,
       expressionRuntime: editor.expressionRuntime,
       runtime: editor.renderRuntime,
       extraCss: PREVIEW_CSS,
@@ -55,11 +54,13 @@
    * the printed PDF.
    */
   async function measureOverflow() {
+    const current = uiModel.capture();
     const doc = iframe?.contentDocument;
     if (!doc) return;
     await doc.fonts?.ready;
+    if (!current()) return;
     const pages = Array.from(doc.querySelectorAll<HTMLElement>('.ex-page'));
-    overflows = findSheetOverflows(
+    ui.overflows = findSheetOverflows(
       pages,
       editor.doc.pages.map((page) => page.label),
     );
@@ -81,25 +82,25 @@
     <strong>{webDocument ? 'Website preview' : 'Print preview'}</strong>
     {#if dataResolutionEnabled}
       <label class="exs-preview__toggle">
-        <input type="checkbox" bind:checked={withData} />
+        <input type="checkbox" bind:checked={ui.withData} />
         Sample data
       </label>
     {/if}
     {#if !webDocument}
       <label class="exs-preview__toggle" title="Exact paper size: footers pin to the sheet bottom and overflow clips, matching the printed PDF">
-        <input type="checkbox" bind:checked={sheetMode} />
+        <input type="checkbox" bind:checked={ui.sheetMode} />
         Exact sheets
       </label>
       <label class="exs-preview__toggle" title="Dashed outline of the printable area inside the page margins (never printed)">
-        <input type="checkbox" bind:checked={showGuides} />
+        <input type="checkbox" bind:checked={ui.showGuides} />
         Margin guides
       </label>
     {/if}
 
-    {#if !webDocument && sheetMode && overflows.length > 0}
+    {#if !webDocument && ui.sheetMode && ui.overflows.length > 0}
       <span class="exs-preview__warning" role="alert">
         <TriangleAlert size={13} />
-        {#each overflows as o, i (o.sheet)}{i > 0 ? ' · ' : ''}“{o.label}” overflows by ~{o.byMm}mm{/each}
+        {#each ui.overflows as o, i (o.sheet)}{i > 0 ? ' · ' : ''}“{o.label}” overflows by ~{o.byMm}mm{/each}
         — will be cut off in print
       </span>
     {/if}

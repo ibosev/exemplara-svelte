@@ -1,3 +1,4 @@
+import { createCorePanelsPlugin as createCorePlugin } from 'exemplara-core/editor/plugins/core-panels';
 import Palette from '../Palette.svelte';
 import ComponentsOnlyPalette from '../ComponentsOnlyPalette.svelte';
 import LayerPanel from '../LayerPanel.svelte';
@@ -7,10 +8,13 @@ import { IconAtom, IconInspect, IconLayers } from '../icons.js';
 // `editor` uniformly, while the palette wrapper may also configure local props.
 const asPanel = (component) => component;
 export function createCorePanelsPlugin(options = {}) {
+    const core = createCorePlugin(options);
     return {
+        core,
         id: 'exemplara.core-panels',
         version: '1.0.0',
         setup(api) {
+            api.installCore(core);
             api.addPanel({
                 id: 'components',
                 label: 'Atoms',

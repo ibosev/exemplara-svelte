@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { bindUiState } from './ui-state.js';
+  import { getEditorContext } from './context.svelte.js';
+  const editor = getEditorContext();
   import type { PropSchema } from '../core/types.js';
   import { parseJsonValue } from '../shared/forms.js';
 
@@ -11,7 +14,8 @@
 
   let { name, schema, value, onchange }: Props = $props();
 
-  let jsonError = $state('');
+  const uiModel = $derived(editor.session.ui.get('property', JSON.stringify([editor.selectedId, name])));
+  const ui = $derived(bindUiState(uiModel));
 
   const arrayValue = $derived(Array.isArray(value) ? value : []);
 
@@ -66,11 +70,11 @@
     const raw = (event.currentTarget as HTMLTextAreaElement).value;
     const parsed = parseJsonValue(raw, schema.default);
     if (!parsed.ok) {
-      jsonError = parsed.error;
+      ui.jsonError = parsed.error;
       return;
     }
     onchange(parsed.value);
-    jsonError = '';
+    ui.jsonError = '';
   }
 </script>
 
@@ -186,8 +190,8 @@
     <!-- object / array / spacing: edit as JSON -->
     <textarea id={`exs-prop-${name}`} value={JSON.stringify(value ?? schema.default ?? null, null, 2)} onchange={onJsonChange}
     ></textarea>
-    {#if jsonError}
-      <span class="exs-field__error">{jsonError}</span>
+    {#if ui.jsonError}
+      <span class="exs-field__error">{ui.jsonError}</span>
     {/if}
   {/if}
 

@@ -1,1 +1,1 @@
-export declare function addUnique<T>(kind: string, entries: Map<string, T>, id: string, value: T): void;
+export * from 'exemplara-core/editor/contribution-utils';

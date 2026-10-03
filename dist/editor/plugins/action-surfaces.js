@@ -1,3 +1,4 @@
+import { createActionSurfacesPlugin as createCorePlugin } from 'exemplara-core/editor/plugins/action-surfaces';
 import ContextMenu from '../ContextMenu.svelte';
 import SelectionToolbar from '../SelectionToolbar.svelte';
 import { registerCoreEditingMenus } from './core-editing-surfaces.js';
@@ -8,13 +9,15 @@ const asDecoration = (component) => component;
  * core-editing plugin.
  */
 export function createActionSurfacesPlugin() {
+    const core = createCorePlugin();
     return {
+        core,
         id: 'exemplara.action-surfaces',
         version: '1.0.0',
         dependsOn: ['exemplara.core-editing'],
         provides: ['node.context-menu'],
         setup(api) {
-            registerCoreEditingMenus(api);
+            api.installCore(core);
             api.addCanvasDecoration({
                 id: 'selection-toolbar',
                 placement: 'overlay',

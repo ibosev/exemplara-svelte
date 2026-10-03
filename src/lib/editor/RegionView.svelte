@@ -1,7 +1,7 @@
 <script lang="ts">
   import NodeView from './NodeView.svelte';
   import { getEditorContext } from './context.svelte.js';
-  import { dropzone, dragState } from './dnd.svelte.js';
+  import { dropzone } from './dnd.svelte.js';
   import { styleString } from '../renderer/escape.js';
   import type { DataContext } from '../renderer/data.js';
   import type { Region, RegionName } from '../core/types.js';
@@ -19,7 +19,7 @@
 
   const editor = getEditorContext();
 
-  const isDropTarget = $derived(dragState.over?.parentId === region.id);
+  const isDropTarget = $derived(editor.drag.over?.parentId === region.id);
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->

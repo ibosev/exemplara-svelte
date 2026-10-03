@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { persistentDisclosure } from '../disclosure.js';
   import { getEditorContext } from '../context.svelte.js';
   import {
     addParagraphTabStop,
@@ -25,7 +26,7 @@
   }
 </script>
 
-<details class="exs-details" open>
+<details class="exs-details" {@attach persistentDisclosure(`paragraph:${node.id}`, editor, true)}>
   <summary>Paragraph</summary>
   <div class="exs-field exs-paragraph-panel">
     <div class="exs-paragraph-panel__grid">

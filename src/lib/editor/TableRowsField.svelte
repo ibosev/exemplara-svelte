@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { bindUiState } from './ui-state.js';
   import { extractSampleDataPaths } from '../shared/data-browser.js';
   import {
     replaceBindingTarget,
@@ -16,14 +17,15 @@
   }
 
   let { editor, node }: Props = $props();
-  let modeOverride = $state<'connected' | 'manual' | null>(null);
+  const uiModel = $derived(editor.session.ui.get('tableRows', node.id));
+  const ui = $derived(bindUiState(uiModel));
 
   const paths = $derived(extractSampleDataPaths(editor.doc.dataSources));
   const arrayPaths = $derived(tableArrayPaths(paths));
   const selection = $derived(resolveTableDataSelection(node, paths));
   const columns = $derived(tableColumns(node));
   const rowFields = $derived(tableRowFields(selection.rows));
-  const mode = $derived(modeOverride ?? (
+  const mode = $derived(ui.modeOverride ?? (
     selection.mode === 'connected' ? 'connected' : 'manual'
   ));
   const selectedValue = $derived(selection.path
@@ -32,7 +34,7 @@
   const unmappedColumns = $derived(columns.filter((column) => !rowFields.includes(column.key)));
 
   function selectRows(value: string): void {
-    modeOverride = 'connected';
+    ui.modeOverride = 'connected';
     const option = arrayPaths.find((candidate) => `${candidate.sourceId}:${candidate.path}` === value);
     const nextBindings = replaceBindingTarget(
       node.dataBindings,
@@ -52,7 +54,7 @@
 
   function useManualRows(): void {
     const copiedRows = selection.rows.map((row) => structuredClone(row));
-    modeOverride = 'manual';
+    ui.modeOverride = 'manual';
     editor.commitPropAuthoring(
       node.id,
       'rows',
@@ -66,7 +68,7 @@
   }
 
   function useConnectedRows(): void {
-    modeOverride = 'connected';
+    ui.modeOverride = 'connected';
   }
 
   function editSourceData(): void {

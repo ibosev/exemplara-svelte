@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { persistentDisclosure } from './disclosure.js';
   import PropField from './PropField.svelte';
   import HtmlAttributesField from './HtmlAttributesField.svelte';
   import ImageProperties from './ImageProperties.svelte';
@@ -124,7 +125,7 @@
       <ImageProperties {editor} {node} />
 
       {#if htmlImage}
-        <details class="exs-details exs-html-advanced">
+        <details class="exs-details exs-html-advanced" {@attach persistentDisclosure(`html-attributes:${node.id}`, editor, false)}>
           <summary>Advanced</summary>
           <div class="exs-html-advanced__body">
             <label class="exs-field">
@@ -152,7 +153,7 @@
         </details>
       {/if}
     {:else if node.type === 'html-element'}
-      <details class="exs-details exs-html-advanced">
+      <details class="exs-details exs-html-advanced" {@attach persistentDisclosure(`html-source:${node.id}`, editor, false)}>
         <summary>Advanced</summary>
         <div class="exs-html-advanced__body">
           {#each Object.entries(definition.propSchema) as [propName, schema] (propName)}

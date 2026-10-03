@@ -1,0 +1,12 @@
+import { EditorApplication, EditorSession, createFullEditorPreset } from 'exemplara-core/editor';
+import { createDataBindingPlugin, createVersionHistoryPlugin, type VersionHistorySession } from 'exemplara-plugins/core';
+import { render } from 'exemplara-core/renderer';
+const session = new EditorSession({ composition: createFullEditorPreset({ plugins: [createDataBindingPlugin()] }) });
+const html: string = render(session.snapshot()).html;
+const unused: typeof createVersionHistoryPlugin | VersionHistorySession | string = html;
+session.ui.get('data').set('pasteText', '{\"draft\":true}');
+const app = new EditorApplication({ features: { print: true }, document: session.snapshot(), createComposition: () => createFullEditorPreset(), documentForFeatures: () => session.snapshot() });
+app.setView('json');
+const print: boolean = app.stores.features.get().print;
+app.destroy();
+session.destroy();

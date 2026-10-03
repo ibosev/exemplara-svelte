@@ -1,3 +1,4 @@
+import type { EditorPlugin as CoreEditorPlugin } from 'exemplara-core/editor';
 import type { Component } from 'svelte';
 import type { CapabilityId, CapabilityPolicy } from '../core/capabilities.js';
 import type { ComponentDefinition, ComponentNode, ExemplaraDocument } from '../core/types.js';
@@ -131,9 +132,12 @@ export interface EditorAutocompleteProvider {
 }
 export interface EditorExtensionApi {
     readonly policy: CapabilityPolicy;
+    /** Install portable behavior when used without an existing session registry. */
+    installCore: (plugin: CoreEditorPlugin) => void;
     hasCapability: (capability: CapabilityId) => boolean;
     getService: <T = unknown>(id: string) => T | undefined;
     addComponentIcon: (type: string, icon: ComponentIcon) => void;
+    addContributionIcon: (id: string, icon: ComponentIcon) => void;
     addBindingTransform: (name: string, transform: BindingTransform) => void;
     addComponent: (definition: ComponentDefinition, renderer?: NodeRenderer, rendererOptions?: RendererOptions) => void;
     addBlock: (block: EditorBlockDefinition) => void;
@@ -153,7 +157,9 @@ export interface EditorExtensionApi {
     setExpressionEvaluator: (evaluator: TemplateExpressionEvaluator) => void;
 }
 export type EditorExtensionDisposer = () => void;
-export type EditorExtension = (api: EditorExtensionApi) => void | EditorExtensionDisposer;
+export type EditorExtension = ((api: EditorExtensionApi) => void | EditorExtensionDisposer) & {
+    core?: CoreEditorPlugin;
+};
 export interface EditorBrandConfig {
     mark?: string;
     logoUrl?: string;

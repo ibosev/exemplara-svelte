@@ -209,8 +209,8 @@ describe('web document renderer', () => {
     expect(doc.styles.tokens.colors.primary).toBeUndefined();
     expect(doc.meta.web?.customCss).toContain('--mujo-bg: var(--color-mujo-bg)');
     expect(doc.meta.web?.customCss).toContain('--mujo-nav-bg: var(--mujo-bg, transparent)');
-    expect(doc.styles.tokens.typography.heading.fontFamily).toContain('Cormorant Garamond');
-    expect(doc.styles.tokens.typography.body.fontFamily).toContain('IBM Plex Sans');
+    expect(doc.styles.tokens.typography.heading?.fontFamily).toContain('Cormorant Garamond');
+    expect(doc.styles.tokens.typography.body?.fontFamily).toContain('IBM Plex Sans');
     expect(bindImportedCssToDesignTokens(doc)).toBe(false);
 
     applyCommand(doc, {

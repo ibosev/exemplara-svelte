@@ -1,3 +1,4 @@
+import { createCoreCanvasPlugin as createCorePlugin } from 'exemplara-core/editor/plugins/core-canvas';
 import type { Component } from 'svelte';
 import type { EditorPlugin } from '../composition.js';
 import type { EditorCanvasDecorationProps } from '../extension-types.js';
@@ -15,10 +16,13 @@ const asDecoration = (
  * sheet surface. Optional action overlays belong to action-surfaces.
  */
 export function createCoreCanvasPlugin(): EditorPlugin {
+  const core = createCorePlugin();
   return {
+    core,
     id: 'exemplara.core-canvas',
     version: '1.0.0',
     setup(api) {
+      api.installCore(core);
       api.addCanvasDecoration({
         id: 'ruler',
         placement: 'above',

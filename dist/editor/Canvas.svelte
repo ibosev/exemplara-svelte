@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { bindUiState } from './ui-state.js';
+  import { onMount, tick, untrack } from 'svelte';
   import PageSheet from './PageSheet.svelte';
   import WebPageSheet from './WebPageSheet.svelte';
   import Toolbar from './Toolbar.svelte';
@@ -13,10 +14,11 @@
 
   const editor = getEditorContext();
   const pageElements = new Map<string, HTMLElement>();
-  let reflowPending = false;
-  let scrollSyncPending = false;
+  const uiModel = $derived(editor.session.ui.get('canvas'));
+  const ui = $derived(bindUiState(uiModel));
+
   let resizeObserver: ResizeObserver | null = null;
-  let lastPrintFocus = -1;
+
   const editingEnabled = $derived(
     editor.hasPlugin('exemplara.core-editing')
       && editor.composition.policy.allows('document.edit')
@@ -54,10 +56,12 @@
 
   /** Keep the page navigator in sync with the sheet nearest the viewport focus line. */
   function syncActivePageFromScroll(): void {
-    if (editor.printEditing || scrollSyncPending || typeof requestAnimationFrame === 'undefined') return;
-    scrollSyncPending = true;
+    if (editor.printEditing || ui.scrollSyncPending || typeof requestAnimationFrame === 'undefined') return;
+    ui.scrollSyncPending = true;
+    const current = uiModel.capture();
     requestAnimationFrame(() => {
-      scrollSyncPending = false;
+      if (!current()) return;
+      ui.scrollSyncPending = false;
       const surface = editor.canvasSurface;
       if (!surface || editor.doc.pages.length === 0) return;
 
@@ -85,18 +89,21 @@
 
   function scheduleReflow(): void {
     if (
-      reflowPending
+      ui.reflowPending
       || webDocument
       || editor.editingId
       || !paginationAuthoringEnabled
       || editor.doc.pagination.mode !== 'auto'
       || typeof requestAnimationFrame === 'undefined'
     ) return;
-    reflowPending = true;
+    ui.reflowPending = true;
+    const current = uiModel.capture();
     requestAnimationFrame(async () => {
       await tick();
+      if (!current()) return;
       requestAnimationFrame(() => {
-        reflowPending = false;
+        if (!current()) return;
+        ui.reflowPending = false;
         // An edit can begin after this pass was scheduled. Never mutate the
         // fragment AST underneath an active contenteditable session.
         if (editor.editingId) return;
@@ -113,17 +120,17 @@
     editor.engineRevision;
     editor.doc.pagination.mode;
     editor.editingId;
-    scheduleReflow();
+    untrack(scheduleReflow);
   });
 
   $effect(() => {
-    if (!editor.printEditing || editor.activePageIndex === lastPrintFocus) return;
-    lastPrintFocus = editor.activePageIndex;
+    if (!editor.printEditing || editor.activePageIndex === untrack(() => ui.lastPrintFocus)) return;
+    ui.lastPrintFocus = editor.activePageIndex;
     requestAnimationFrame(() => focusPage(editor.activePageIndex));
   });
 
   $effect(() => {
-    if (!editor.printEditing) lastPrintFocus = -1;
+    if (!editor.printEditing) ui.lastPrintFocus = -1;
   });
 
   onMount(() => {

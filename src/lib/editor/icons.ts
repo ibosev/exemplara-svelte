@@ -3,7 +3,7 @@
 // core stays UI-framework-agnostic; the Svelte editor maps component
 // types to Lucide glyphs here, falling back to the definition's string.
 
-import type { Icon as IconType } from '@lucide/svelte';
+import type { default as IconType } from '@lucide/svelte/icons/type';
 import Type from '@lucide/svelte/icons/type';
 import Image from '@lucide/svelte/icons/image';
 import Box from '@lucide/svelte/icons/box';

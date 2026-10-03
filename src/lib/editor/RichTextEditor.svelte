@@ -1,12 +1,10 @@
 <script lang="ts">
+  import { bindUiState } from './ui-state.js';
   import BindingAutocomplete from './BindingAutocomplete.svelte';
   import { getEditorContext } from './context.svelte.js';
   import { applyInlineFormat, sanitizeHtml, type InlineFormat } from '../shared/richtext.js';
   import {
-    bindingAuthoringValue,
-    commitBindingAuthoring,
     findBindingAutocompleteTrigger,
-    type BindingAutocompleteTrigger,
   } from '../shared/binding-authoring.js';
   import {
     IconBold,
@@ -29,19 +27,12 @@
 
   let root = $state<HTMLElement | null>(null);
   let surface = $state<HTMLElement | null>(null);
-  // svelte-ignore state_referenced_locally -- the editing session snapshots the content once; commits go through the engine
-  const initialHtml = dataAuthoringEnabled
-    ? bindingAuthoringValue(node)
-    : String(node.props.content ?? '');
-  let autocomplete = $state<{
-    trigger: BindingAutocompleteTrigger;
-    left: number;
-    top: number;
-  } | null>(null);
-  let highlightedIndex = $state(0);
-  let preferredSourceId = $state<string | undefined>(undefined);
+  const uiModel = $derived(editor.session.ui.get('richText', node.id));
+  const ui = $derived(bindUiState(uiModel));
+  // svelte-ignore state_referenced_locally -- initialize the DOM once; input publishes to the Nano Store without replacing the caret
+  const initialHtml = uiModel.store.get().draftHtml;
   const suggestions = $derived(
-    autocomplete ? editor.autocompleteSuggestions(autocomplete.trigger) : [],
+    ui.autocomplete ? editor.autocompleteSuggestions(ui.autocomplete.trigger) : [],
   );
 
   $effect(() => editor.registerInlineExpressionTarget(
@@ -62,33 +53,14 @@
     }
   });
 
-  function commit() {
-    if (!surface) return;
-    const html = sanitizeHtml(surface.innerHTML);
-    if (!dataAuthoringEnabled) {
-      const remainingBindings = node.dataBindings?.filter(
-        (binding) => binding.targetProp !== 'content',
-      );
-      editor.commitRichTextAuthoring(node.id, html, remainingBindings);
-      autocomplete = null;
-      editor.editingId = null;
-      return;
-    }
-    const authored = commitBindingAuthoring(node, html, editor.doc.dataSources, preferredSourceId);
-    if (
-      authored.content !== String(node.props.content ?? '')
-      || JSON.stringify(authored.dataBindings) !== JSON.stringify(node.dataBindings)
-    ) {
-      editor.commitRichTextAuthoring(node.id, authored.content, authored.dataBindings);
-    }
-    autocomplete = null;
-    editor.editingId = null;
+  function syncDraft(): void {
+    if (surface) ui.draftHtml = sanitizeHtml(surface.innerHTML);
   }
-
-  function cancel() {
-    autocomplete = null;
-    editor.editingId = null;
+  function commit(): void {
+    syncDraft();
+    editor.session.ui.commitRichText(node.id);
   }
+  function cancel(): void { editor.session.ui.cancelRichText(node.id); }
 
   function caretOffsetWithin(element: HTMLElement, range: Range): number {
     const prefix = range.cloneRange();
@@ -111,8 +83,9 @@
   }
 
   function updateAutocomplete(): void {
+    syncDraft();
     if (!dataAuthoringEnabled) {
-      autocomplete = null;
+      ui.autocomplete = null;
       return;
     }
     if (!surface) return;
@@ -125,11 +98,11 @@
       caretOffsetWithin(surface, range),
     );
     if (!trigger) {
-      autocomplete = null;
+      ui.autocomplete = null;
       return;
     }
-    autocomplete = { trigger, ...caretPosition(range) };
-    highlightedIndex = 0;
+    ui.autocomplete = { trigger, ...caretPosition(range) };
+    ui.highlightedIndex = 0;
   }
 
   function textPointAtOffset(element: HTMLElement, requestedOffset: number): { node: Node; offset: number } {
@@ -145,18 +118,18 @@
     return { node: element, offset: element.childNodes.length };
   }
 
-  function selectSuggestion(index = highlightedIndex): void {
-    if (!surface || !autocomplete) return;
+  function selectSuggestion(index = ui.highlightedIndex): void {
+    if (!surface || !ui.autocomplete) return;
     const suggestion = suggestions[index];
     if (!suggestion) return;
-    const start = textPointAtOffset(surface, autocomplete.trigger.start);
-    const end = textPointAtOffset(surface, autocomplete.trigger.end);
+    const start = textPointAtOffset(surface, ui.autocomplete.trigger.start);
+    const end = textPointAtOffset(surface, ui.autocomplete.trigger.end);
     const range = document.createRange();
     range.setStart(start.node, start.offset);
     range.setEnd(end.node, end.offset);
     range.deleteContents();
-    const completedExpression = autocomplete.trigger.kind === 'formatter'
-      ? `{{${autocomplete.trigger.expressionPrefix} | ${suggestion.value}}}`
+    const completedExpression = ui.autocomplete.trigger.kind === 'formatter'
+      ? `{{${ui.autocomplete.trigger.expressionPrefix} | ${suggestion.value}}}`
       : `{{${suggestion.value}}}`;
     const expression = document.createTextNode(completedExpression);
     range.insertNode(expression);
@@ -166,8 +139,9 @@
     selection?.removeAllRanges();
     selection?.addRange(range);
     surface.normalize();
-    preferredSourceId = suggestion.sourceId;
-    autocomplete = null;
+    syncDraft();
+    ui.preferredSourceId = suggestion.sourceId;
+    ui.autocomplete = null;
     surface.focus();
   }
 
@@ -195,22 +169,23 @@
     selection.removeAllRanges();
     selection.addRange(range);
     surface.normalize();
-    autocomplete = null;
+    syncDraft();
+    ui.autocomplete = null;
     surface.focus({ preventScroll: true });
     return true;
   }
 
   function onKeydown(event: KeyboardEvent) {
     event.stopPropagation();
-    if (autocomplete) {
+    if (ui.autocomplete) {
       if (event.key === 'ArrowDown') {
         event.preventDefault();
-        highlightedIndex = Math.min(highlightedIndex + 1, Math.max(0, suggestions.length - 1));
+        ui.highlightedIndex = Math.min(ui.highlightedIndex + 1, Math.max(0, suggestions.length - 1));
         return;
       }
       if (event.key === 'ArrowUp') {
         event.preventDefault();
-        highlightedIndex = Math.max(0, highlightedIndex - 1);
+        ui.highlightedIndex = Math.max(0, ui.highlightedIndex - 1);
         return;
       }
       if (event.key === 'Enter' || event.key === 'Tab') {
@@ -220,7 +195,7 @@
       }
       if (event.key === 'Escape') {
         event.preventDefault();
-        autocomplete = null;
+        ui.autocomplete = null;
         return;
       }
     }
@@ -254,6 +229,7 @@
           // Keep the contenteditable selection alive.
           event.preventDefault();
           applyInlineFormat(format);
+          syncDraft();
         }}
       >
         <Icon size={13} />
@@ -277,16 +253,16 @@
     <!-- eslint-disable-next-line svelte/no-at-html-tags -->
     {@html sanitizeHtml(initialHtml)}
   </div>
-  {#if dataAuthoringEnabled && autocomplete}
+  {#if dataAuthoringEnabled && ui.autocomplete}
     <BindingAutocomplete
       {suggestions}
-      kind={autocomplete.trigger.kind}
-      query={autocomplete.trigger.query}
-      {highlightedIndex}
-      left={autocomplete.left}
-      top={autocomplete.top}
+      kind={ui.autocomplete.trigger.kind}
+      query={ui.autocomplete.trigger.query}
+      highlightedIndex={ui.highlightedIndex}
+      left={ui.autocomplete.left}
+      top={ui.autocomplete.top}
       onselect={(suggestion) => selectSuggestion(suggestions.indexOf(suggestion))}
-      onhighlight={(index) => (highlightedIndex = index)}
+      onhighlight={(index) => (ui.highlightedIndex = index)}
     />
   {/if}
 </div>

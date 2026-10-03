@@ -2,7 +2,9 @@ import type { ComponentRegistry } from '../core/registry.js';
 import type { ExemplaraDocument } from '../core/types.js';
 import type { EditorExtension, EditorHostConfig } from './extensions.js';
 import type { EditorComposition } from './composition.js';
+import type { EditorSession } from 'exemplara-core/editor';
 interface Props {
+    session?: EditorSession;
     document?: ExemplaraDocument;
     registry?: ComponentRegistry;
     extensions?: readonly EditorExtension[];

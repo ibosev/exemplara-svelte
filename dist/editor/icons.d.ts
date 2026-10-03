@@ -1,4 +1,4 @@
-import type { Icon as IconType } from '@lucide/svelte';
+import type { default as IconType } from '@lucide/svelte/icons/type';
 export type ComponentIcon = typeof IconType;
 export interface ComponentIconRegistry {
     get(type: string): ComponentIcon | null;

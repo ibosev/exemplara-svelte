@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { bindUiState } from './ui-state.js';
+  import { onMount, tick, untrack } from 'svelte';
   import { getEditorContext } from './context.svelte.js';
   import { placeFloatingControls, type FloatingControlsPlacement } from '../shared/floating-controls.js';
   import { IconMore } from './icons.js';
@@ -18,9 +19,9 @@
   ].join('|'));
 
   let toolbar = $state<HTMLElement | null>(null);
-  let placement = $state<FloatingControlsPlacement>({ mode: 'hidden', side: 'viewport', x: 0, y: 0 });
-  let fullWidth = 0;
-  let measuredSignature = '';
+  const uiModel = $derived(editor.session.ui.get('selectionToolbar'));
+  const ui = $derived(bindUiState(uiModel));
+
   let updateFrame = 0;
   let resizeObserver: ResizeObserver | null = null;
 
@@ -37,16 +38,16 @@
     const page = target?.closest<HTMLElement>('.exs-page, .exs-web-page');
     const surface = editor.canvasSurface;
     if (!target || !page || !surface || !toolbar || editor.editingId || editor.contextMenu) {
-      placement = { mode: 'hidden', side: 'viewport', x: 0, y: 0 };
+      ui.placement = { mode: 'hidden', side: 'viewport', x: 0, y: 0 };
       return;
     }
-    if (placement.mode !== 'compact') fullWidth = Math.max(fullWidth, toolbar.getBoundingClientRect().width);
+    if (ui.placement.mode !== 'compact') ui.fullWidth = Math.max(ui.fullWidth, toolbar.getBoundingClientRect().width);
     const height = toolbar.getBoundingClientRect().height || 26;
-    placement = placeFloatingControls(
+    ui.placement = placeFloatingControls(
       target.getBoundingClientRect(),
       page.getBoundingClientRect(),
       surface.getBoundingClientRect(),
-      fullWidth || 112,
+      ui.fullWidth || 112,
       height,
     );
   }
@@ -72,12 +73,12 @@
 
   $effect(() => {
     const signature = toolbarSignature;
-    if (signature !== measuredSignature) {
-      measuredSignature = signature;
-      fullWidth = 0;
+    if (signature !== untrack(() => ui.measuredSignature)) {
+      ui.measuredSignature = signature;
+      ui.fullWidth = 0;
       // Render the complete button set for one layout pass before deciding
       // whether this selection needs the compact gutter control.
-      placement = { mode: 'hidden', side: 'viewport', x: 0, y: 0 };
+      ui.placement = { mode: 'hidden', side: 'viewport', x: 0, y: 0 };
     }
     editor.selectedId;
     editor.engineRevision;
@@ -112,16 +113,16 @@
   <div
     bind:this={toolbar}
     class="exs-selection-toolbar"
-    class:exs-selection-toolbar--compact={placement.mode === 'compact'}
-    data-side={placement.side}
+    class:exs-selection-toolbar--compact={ui.placement.mode === 'compact'}
+    data-side={ui.placement.side}
     role="toolbar"
     aria-label={`${definition.label} actions`}
-    title={placement.mode === 'compact' ? `${definition.label} actions` : undefined}
-    style:left={`${placement.x}px`}
-    style:top={`${placement.y}px`}
-    style:visibility={placement.mode === 'hidden' ? 'hidden' : 'visible'}
+    title={ui.placement.mode === 'compact' ? `${definition.label} actions` : undefined}
+    style:left={`${ui.placement.x}px`}
+    style:top={`${ui.placement.y}px`}
+    style:visibility={ui.placement.mode === 'hidden' ? 'hidden' : 'visible'}
   >
-    {#if placement.mode === 'compact' && contextMenuEnabled}
+    {#if ui.placement.mode === 'compact' && contextMenuEnabled}
       <button type="button" title="More actions" aria-label={`More actions for ${definition.label}`} onclick={openActions}><IconMore size={13} /></button>
     {:else}
       {#each inlineActions as action (action.id)}

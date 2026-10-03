@@ -69,7 +69,7 @@
               addToBody(definition.type);
             }
           }}
-          {@attach draggable(() => ({ kind: 'new', componentType: definition.type }))}
+          {@attach draggable(() => ({ kind: 'new', componentType: definition.type }), editor)}
         >
           <span class="exs-palette__icon">
             {#if Icon}
@@ -102,7 +102,7 @@
                 addBlockToBody(block.id);
               }
             }}
-            {@attach draggable(() => ({ kind: 'block', blockId: block.id }))}
+            {@attach draggable(() => ({ kind: 'block', blockId: block.id }), editor)}
           >
             <span class="exs-palette__icon">{#if Icon}<Icon size={15} />{:else}▫️{/if}</span>
             <span class="exs-palette__label">

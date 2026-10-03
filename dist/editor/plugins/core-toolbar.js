@@ -1,3 +1,4 @@
+import { createCoreToolbarPlugin as createCorePlugin } from 'exemplara-core/editor/plugins/core-toolbar';
 import BrandCluster from '../toolbar/BrandCluster.svelte';
 import HistoryCluster from '../toolbar/HistoryCluster.svelte';
 import StatusCluster from '../toolbar/StatusCluster.svelte';
@@ -13,10 +14,13 @@ import ActionsCluster from '../toolbar/ActionsCluster.svelte';
  * duplicate application chrome without relying on CSS selectors.
  */
 export function createCoreToolbarPlugin(options = {}) {
+    const core = createCorePlugin(options);
     return {
+        core,
         id: 'exemplara.core-toolbar',
         version: '1.0.0',
         setup(api) {
+            api.installCore(core);
             if (options.brand !== false) {
                 api.addToolbarCluster({ id: 'brand', order: 10, zone: 'start', component: BrandCluster });
             }

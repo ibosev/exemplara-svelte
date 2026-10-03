@@ -1,4 +1,3 @@
-import NodeView from './NodeView.svelte';
 import { type DataContext } from '../renderer/data.js';
 import type { ComponentNode } from '../core/types.js';
 interface Props {

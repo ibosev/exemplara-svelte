@@ -38,3 +38,8 @@ export * from './plugins/core-editing.js';
 export * from './plugins/core-inspector.js';
 export * from './plugins/core-panels.js';
 export * from './plugins/core-toolbar.js';
+
+export { EditorSession, createEditorSession, type EditorSessionOptions, type EditorViewAdapter } from 'exemplara-core/editor';
+export * from './ui-state.js';
+
+export * from './disclosure.js';

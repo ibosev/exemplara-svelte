@@ -1,11 +1,12 @@
 <script lang="ts">
+  import { persistentDisclosure } from '../disclosure.js';
   import BoxModel from './BoxModel.svelte';
   import type { EditorInspectorSectionProps } from '../extension-types.js';
 
-  let { node }: EditorInspectorSectionProps = $props();
+  let { editor, node }: EditorInspectorSectionProps = $props();
 </script>
 
-<details class="exs-details">
+<details class="exs-details" {@attach persistentDisclosure(`box:${node.id}`, editor, false)}>
   <summary>Box model</summary>
   <div class="exs-field">
     <BoxModel {node} />

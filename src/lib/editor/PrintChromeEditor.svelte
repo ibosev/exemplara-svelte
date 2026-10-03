@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+  import { getEditorContext } from './context.svelte.js';
   import { renderEditablePrintTemplateDocument } from '../renderer/print-templates.js';
   import { sanitizePrintTemplateHtml } from '../renderer/print-templates.js';
   import type { ExemplaraDocument } from '../core/types.js';
@@ -15,7 +17,9 @@
   let { document, position, html, title, oncommit, oncancel }: Props = $props();
   let frame = $state<HTMLIFrameElement | null>(null);
   let cleanup: (() => void) | null = null;
-  const source = $derived(renderEditablePrintTemplateDocument(document, position, html));
+  const editor = getEditorContext();
+  const uiModel = $derived(editor.session.ui.get('printChrome', JSON.stringify([position, editor.effectivePrintPreviewPage, editor.printVariant])));
+  const source = $derived(renderEditablePrintTemplateDocument(document, position, untrack(() => uiModel.store.get().draftHtml)));
 
   function connect(): void {
     cleanup?.();
@@ -24,29 +28,37 @@
     surface.contentEditable = 'true';
     surface.setAttribute('role', 'textbox');
     surface.setAttribute('aria-label', `Edit ${position}`);
-    let committed = false;
+    const state = uiModel.values, current = uiModel.capture();
+    state.committed = false;
+    const input = () => { if (current()) state.draftHtml = sanitizePrintTemplateHtml(surface.innerHTML); };
     const commit = () => {
-      if (committed) return;
-      committed = true;
-      oncommit(sanitizePrintTemplateHtml(surface.innerHTML));
+      if (!current() || state.committed) return;
+      input();
+      state.committed = true;
+      oncommit(state.draftHtml);
+      uiModel.reset();
     };
     const keydown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        committed = true;
+        state.committed = true;
         oncancel();
+        uiModel.reset();
       } else if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         commit();
       }
     };
+    surface.addEventListener('input', input);
     surface.addEventListener('blur', commit);
     surface.addEventListener('keydown', keydown);
     cleanup = () => {
+      surface.removeEventListener('input', input);
       surface.removeEventListener('blur', commit);
       surface.removeEventListener('keydown', keydown);
     };
     requestAnimationFrame(() => {
+      if (!current() || !surface.isConnected) return;
       surface.focus();
       const range = frame?.contentDocument?.createRange();
       const selection = frame?.contentWindow?.getSelection();

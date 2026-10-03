@@ -1,3 +1,4 @@
+import { createCoreCanvasPlugin as createCorePlugin } from 'exemplara-core/editor/plugins/core-canvas';
 import HorizontalRuler from '../HorizontalRuler.svelte';
 import { isWebDocument } from '../../core/web.js';
 // Core decorations read EditorContext from Svelte context and declare no
@@ -8,10 +9,13 @@ const asDecoration = (component) => component;
  * sheet surface. Optional action overlays belong to action-surfaces.
  */
 export function createCoreCanvasPlugin() {
+    const core = createCorePlugin();
     return {
+        core,
         id: 'exemplara.core-canvas',
         version: '1.0.0',
         setup(api) {
+            api.installCore(core);
             api.addCanvasDecoration({
                 id: 'ruler',
                 placement: 'above',

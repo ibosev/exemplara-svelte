@@ -3,7 +3,9 @@ import type { ExemplaraDocument } from '../core/types.js';
 import type { EditorHostConfig } from './extensions.js';
 import type { EditorComposition } from './composition.js';
 import './theme.css';
+import type { EditorSession } from 'exemplara-core/editor';
 interface Props {
+    session?: EditorSession;
     document?: ExemplaraDocument;
     registry?: ComponentRegistry;
     /** Required so this entry point never imports the batteries-included preset. */

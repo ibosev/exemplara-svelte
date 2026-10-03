@@ -1,1 +1,1 @@
-export declare function createId(prefix?: string): string;
+export * from 'exemplara-core/core/id';

@@ -1,3 +1,4 @@
+import { createCoreInspectorPlugin as createCorePlugin } from 'exemplara-core/editor/plugins/core-inspector';
 import ParagraphPanel from '../panels/ParagraphPanel.svelte';
 import BoxModelSection from '../panels/BoxModelSection.svelte';
 /**
@@ -7,10 +8,13 @@ import BoxModelSection from '../panels/BoxModelSection.svelte';
  * fields) stays fixed; sections render beneath it.
  */
 export function createCoreInspectorPlugin() {
+    const core = createCorePlugin();
     return {
+        core,
         id: 'exemplara.core-inspector',
         version: '1.0.0',
         setup(api) {
+            api.installCore(core);
             api.addInspectorSection({
                 id: 'paragraph',
                 order: 20,

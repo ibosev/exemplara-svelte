@@ -1,225 +1,183 @@
-import { DocumentEngine } from '../core/engine.js';
-import { ComponentRegistry } from '../core/registry.js';
-import { EditorExtensionRegistry, type EditorCommandContext, type EditorController, type EditorExtension, type EditorHostConfig, type EditorStatus } from './extensions.js';
-import { type EditorComposition } from './composition.js';
-import { type PageFlowMeasurement } from '../core/pagination.js';
-import { type BindingAutocompleteTrigger } from '../shared/binding-authoring.js';
-import type { EditorAutocompleteSuggestion } from './extensions.js';
-import { type CapabilityId, type UnsupportedDocumentCapability } from '../core/capabilities.js';
-import { type SectionTemplatePosition } from '../core/print-sections.js';
-import type { ComponentDefinition, ComponentNode, ExemplaraDocument, Page, ParagraphFormatting, PrintSection, PrintTemplateVariant, RegionName } from '../core/types.js';
-import { type RenderRuntime } from '../renderer/runtime.js';
-import { type ComponentIcon, type ComponentIconRegistry } from './icons.js';
-export interface EditorInit {
-    document?: ExemplaraDocument;
-    registry?: ComponentRegistry;
+import { EditorSession, type EditorSessionOptions } from "exemplara-core/editor";
+import { EditorExtensionRegistry, type EditorExtension, type EditorHostConfig } from "./extensions.js";
+import { type EditorComposition } from "./composition.js";
+import { type ComponentIcon } from "./icons.js";
+export type { LeftTab, RightTab, ContextMenuState, } from "exemplara-core/editor";
+export interface EditorInit extends Omit<EditorSessionOptions, "composition" | "extensions"> {
     composition?: EditorComposition;
-    /** @deprecated Prefer identified plugins in composition. */
     extensions?: readonly EditorExtension[];
+    /** Externally owned sessions survive view detach. Composition supplies their Svelte views. */
+    session?: EditorSession;
     host?: EditorHostConfig;
 }
-export type LeftTab = string;
-export type RightTab = string;
-export interface ContextMenuState {
-    x: number;
-    y: number;
-    nodeId: string;
-}
-/**
- * Central reactive editor state, shared with every editor component via
- * Svelte context. All fields are runes — components simply read them and
- * stay in sync.
- */
+/** Thin reactive Svelte facade over a portable Nano Stores session. */
 export declare class EditorContext {
     #private;
-    readonly engine: DocumentEngine;
-    readonly registry: ComponentRegistry;
-    readonly extensions: EditorExtensionRegistry;
+    readonly session: EditorSession;
     readonly composition: EditorComposition;
-    readonly renderRuntime: RenderRuntime;
-    readonly iconRegistry: ComponentIconRegistry;
-    readonly host: EditorHostConfig;
-    readonly controller: EditorController;
-    /** Reactive bridges over the portable engine and registry subscriptions. */
-    engineRevision: number;
-    /** Increments only when the entire document is replaced, allowing form surfaces to remount. */
-    documentEpoch: number;
-    registryRevision: number;
-    selectedId: string | null;
-    hoveredId: string | null;
-    activePageIndex: number;
-    /** Copy buffer for node copy/paste. */
-    clipboard: ComponentNode | null;
-    /** Canvas zoom factor. */
-    zoom: number;
-    /** Node currently in inline rich-text editing mode. */
-    editingId: string | null;
-    /** Panel tabs; initialized to each side's first registered panel contribution. */
-    leftTab: LeftTab;
-    rightTab: RightTab;
-    /** Compact sidebars retain their vertical icon rail while hiding panel content. */
-    leftPanelCompact: boolean;
-    rightPanelCompact: boolean;
-    /** Shared Print panel/canvas selection for direct header/footer editing. */
-    printPosition: 'header' | 'footer';
-    printVariant: PrintTemplateVariant;
-    printPreviewPage: number;
-    /** True while the active paper margin iframe is directly contenteditable. */
-    printEditing: boolean;
-    /** Sheets containing an indivisible first block taller than the body frame. */
-    blockedFlowPageIds: string[];
-    /** Print preview overlay. */
-    previewOpen: boolean;
-    /** Focused data-source and binding workspace opened from the compact toolbar. */
-    dataWorkspaceOpen: boolean;
-    /** Right-click context menu (null = closed). */
-    contextMenu: ContextMenuState | null;
-    /** Invalidates the Layers panel when a selected node must be explicitly revealed. */
-    layerRevealRevision: number;
-    /** Dark editor chrome (documents stay light — print is print). */
-    dark: boolean;
-    /** Resolve template expressions with sample data on the editable canvas. */
-    dataPreviewEnabled: boolean;
-    /** Invalidates host theme getters after the host toggle callback runs. */
-    hostThemeRevision: number;
-    /** Complete historical document rendered by the canvas without replacing the editable engine state. */
-    historicalPreviewDocument: ExemplaraDocument | null;
-    /** Durable version identifier associated with the active historical preview. */
-    historicalPreviewVersionId: string | null;
-    /** Bound by Canvas so zoomToFit can measure the viewport. */
+    readonly extensions: EditorExtensionRegistry;
+    readonly iconRegistry: import("./icons.js").ComponentIconRegistry;
     canvasSurface: HTMLElement | null;
-    hostStatus: EditorStatus | null;
-    readonly doc: ExemplaraDocument;
-    readonly historicalPreviewActive: boolean;
-    readonly canUndo: boolean;
-    readonly isPrintTabActive: boolean;
-    /** Effective page index to use for Print previews, section resolution, and the Print panel
-     *  when the Print tab is active. This derives from the editor's activePageIndex to eliminate
-     *  the fragile dual-state (activePageIndex vs printPreviewPage) desync.
-     *  When Print is not active, falls back to the explicit printPreviewPage state.
-     */
-    readonly effectivePrintPreviewPage: number;
-    readonly canRedo: boolean;
-    readonly registryCategories: Map<string, ComponentDefinition[]>;
-    /** Dynamic document features unavailable to this composition (never silently evaluated). */
-    readonly capabilityDiagnostics: UnsupportedDocumentCapability[];
-    readonly activePage: Page | null;
-    readonly selectedNode: ComponentNode | null;
-    readonly selectedDefinition: ComponentDefinition | null;
-    constructor(init?: EditorInit);
-    destroy(): void;
-    getDefinition(type: string): ComponentDefinition | undefined;
+    get engine(): import("exemplara-core").DocumentEngine;
+    get registry(): import("exemplara-core").ComponentRegistry;
+    get renderRuntime(): import("exemplara-core/renderer").RenderRuntime;
+    get host(): import("exemplara-core/editor").EditorHostConfig;
+    get controller(): import("exemplara-core/editor").EditorController;
+    get stores(): EditorSession["stores"];
     componentIcon(type: string): ComponentIcon | null;
-    get expressionRuntime(): import("../index.js").TemplateExpressionRuntime;
-    hasPlugin(pluginId: string): boolean;
-    /** A feature is active only when policy permits it and an installed plugin provides it. */
-    isProvidedCapabilityEnabled(capability: CapabilityId): boolean;
-    autocompleteSuggestions(trigger: BindingAutocompleteTrigger): EditorAutocompleteSuggestion[];
-    setHostStatus(message: string, tone?: EditorStatus['tone']): void;
-    /** Replace the whole document and reset editor-local selection/form state. */
-    replaceDocument(document: ExemplaraDocument): void;
-    /** Render a durable snapshot without loading it into the command engine or changing undo history. */
-    previewHistoricalDocument(versionId: string, document: ExemplaraDocument): void;
-    /** Return the canvas to the current editable draft. */
-    clearHistoricalPreview(): void;
-    isDarkChrome(): boolean;
-    toggleChromeTheme(): void;
-    openPanel(panelId: string, expand?: boolean): boolean;
-    isPanelCompact(side: 'left' | 'right'): boolean;
-    setPanelCompact(side: 'left' | 'right', compact: boolean): void;
-    togglePanelCompact(side: 'left' | 'right'): void;
-    openDataWorkspace(): boolean;
-    closeDataWorkspace(): void;
-    setAutoFlow(enabled: boolean): void;
-    toggleAutoFlow(): void;
-    canRunCommand(commandId: string, context?: EditorCommandContext): boolean;
-    runCommand(commandId: string, context?: EditorCommandContext): Promise<boolean>;
-    /** @deprecated Use canRunCommand(). */
-    canRunExtensionCommand(commandId: string): boolean;
-    /** @deprecated Use runCommand(). */
-    runExtensionCommand(commandId: string): Promise<boolean>;
-    saveToHost(): Promise<boolean>;
-    select(nodeId: string | null): void;
-    /** Select a component and bring its rendered canvas element into view. */
-    selectAndRevealNode(nodeId: string): boolean;
-    /** Select and reveal the nearest component parent. Region roots have no selectable parent. */
-    selectParent(nodeId: string): boolean;
-    /** Open Layers and request expansion/scrolling to a component node. */
-    revealInLayers(nodeId: string): boolean;
-    openContextMenu(x: number, y: number, nodeId: string): void;
-    closeContextMenu(): void;
-    setDataPreview(enabled: boolean): void;
-    /** Merge every data source's sampleData into one preview context. */
-    getDataContext(): Record<string, unknown>;
-    addComponent(type: string, parentId: string, index?: number, slot?: string): ComponentNode;
-    addBlock(blockId: string, parentId: string, index?: number, slot?: string): ComponentNode | null;
-    /** Insert an image node backed by a document asset at an explicit drop target. */
-    insertAssetImage(assetId: string, parentId: string, index?: number, slot?: string): ComponentNode | null;
-    /** Replace the source of an existing native or imported HTML image with a document asset. */
-    applyAssetToImage(assetId: string, nodeId: string): boolean;
-    /** Register the currently mounted rich-text caret as an expression insertion target. */
-    registerInlineExpressionTarget(nodeId: string, insert: (expression: string) => boolean): () => void;
-    /** Insert at the active rich-text caret, or replace selected component content outside edit mode. */
-    insertExpression(expression: string): boolean;
-    moveNode(nodeId: string, targetParentId: string, targetIndex: number, targetSlot?: string): void;
-    updateProps(nodeId: string, props: Record<string, unknown>): void;
-    /** Commit rich-text content and its explicit binding metadata as one undo step. */
-    commitRichTextAuthoring(nodeId: string, content: string, dataBindings: ComponentNode['dataBindings']): void;
-    /** Commit a text-like property and its binding metadata as one undo step. */
-    commitPropAuthoring(nodeId: string, targetProp: string, value: unknown, dataBindings: ComponentNode['dataBindings']): void;
-    /** Update author-owned page-flow rules, collapsing a split logical node first. */
-    updatePaginationRules(nodeId: string, changes: Partial<NonNullable<ComponentNode['pagination']>>): void;
-    /** Enter lossless rich-text editing for the complete logical flow node. */
-    beginRichTextEdit(nodeId: string): void;
-    /**
-     * Set (or clear with undefined) a value-based style binding on a node.
-     * Value bindings are rendered as inline styles by the renderer.
-     */
-    setStyleBinding(nodeId: string, property: string, value: string | undefined): void;
-    /** Attach or detach a reusable document style class from a logical node. */
-    setStyleRuleAttachment(nodeId: string, ruleId: string, attached: boolean): void;
-    /** Create a reusable style class and attach it in the same undoable action. */
-    createReusableStyleClass(nodeId: string, name: string): string | null;
-    /** Read the current value-based style binding for a property. */
-    getStyleBinding(nodeId: string, property: string): string | undefined;
-    removeNode(nodeId: string): void;
-    duplicateNode(nodeId: string): void;
-    /** Move a node one position up/down among its siblings. */
-    moveBy(nodeId: string, delta: 1 | -1): void;
-    /** Snapshot a node as a reusable symbol and tag the node as its instance. */
-    createSymbolFromNode(nodeId: string): void;
-    /** Insert a fresh symbol instance into a drop target or the active page body. */
-    insertSymbolInstance(symbolId: string, parentId?: string, index?: number, slot?: string): ComponentNode | null;
-    detachSymbol(nodeId: string): void;
-    renameSymbol(symbolId: string, label: string): void;
-    /** Delete a saved definition while leaving placed instances as independent content. */
-    removeSymbol(symbolId: string): void;
-    copyNode(nodeId: string): void;
-    /** Paste the clipboard node next to the selected node (or into the body). */
-    pasteClipboard(): void;
-    addPage(): void;
-    duplicatePage(pageId?: string | undefined): void;
-    ensureWebChrome(kind: 'header' | 'footer'): string;
-    promoteSelectionToSiteChrome(kind: 'header' | 'footer'): boolean;
-    removePage(pageId: string): void;
-    /** Open the Print panel from a Word-like header/footer zone on a sheet. */
-    openPrintChrome(position: SectionTemplatePosition, pageIndex: number, editing?: boolean): void;
-    updatePrintVariantForPage(position: SectionTemplatePosition, pageIndex: number, variant: PrintTemplateVariant, value: string): void;
-    startPrintSection(pageIndex: number): void;
-    removePrintSectionBreak(pageIndex: number): void;
-    setPrintSectionLinked(sectionId: string, position: SectionTemplatePosition, linkedToPrevious: boolean): void;
-    updatePrintSection(sectionId: string, changes: Partial<Pick<PrintSection, 'label' | 'differentFirstPage' | 'differentOddEven'>>): void;
-    updateParagraphFormatting(nodeId: string, changes: Partial<ParagraphFormatting>): void;
-    /** Apply one measured auto-pagination step; returns true when the AST changed. */
-    applyPageFlow(measurements: PageFlowMeasurement[]): boolean;
-    /** Set (or clear with '') the page background color via the background region. */
-    setPageBackground(pageId: string, color: string): void;
-    /** Add or remove an optional page region (header/footer/background). */
-    toggleRegion(pageId: string, name: Exclude<RegionName, 'body'>): void;
-    /** Fit the active page width into the canvas viewport. */
-    zoomToFit(): void;
-    undo(): void;
-    redo(): void;
+    get drag(): ReturnType<EditorSession["stores"]["drag"]["get"]>;
+    constructor(init?: EditorInit);
+    /** Track portable predicates invoked through the facade inside Svelte reactions. */
+    track(): void;
+    destroy(): void;
+    get destroyed(): boolean;
+    get engineRevision(): number;
+    get documentEpoch(): EditorSession["documentEpoch"];
+    set documentEpoch(value: EditorSession["documentEpoch"]);
+    get registryRevision(): EditorSession["registryRevision"];
+    set registryRevision(value: EditorSession["registryRevision"]);
+    get selectedId(): EditorSession["selectedId"];
+    set selectedId(value: EditorSession["selectedId"]);
+    get hoveredId(): EditorSession["hoveredId"];
+    set hoveredId(value: EditorSession["hoveredId"]);
+    get activePageIndex(): EditorSession["activePageIndex"];
+    set activePageIndex(value: EditorSession["activePageIndex"]);
+    get clipboard(): EditorSession["clipboard"];
+    set clipboard(value: EditorSession["clipboard"]);
+    get zoom(): EditorSession["zoom"];
+    set zoom(value: EditorSession["zoom"]);
+    get editingId(): EditorSession["editingId"];
+    set editingId(value: EditorSession["editingId"]);
+    get leftTab(): EditorSession["leftTab"];
+    set leftTab(value: EditorSession["leftTab"]);
+    get rightTab(): EditorSession["rightTab"];
+    set rightTab(value: EditorSession["rightTab"]);
+    get leftPanelCompact(): EditorSession["leftPanelCompact"];
+    set leftPanelCompact(value: EditorSession["leftPanelCompact"]);
+    get rightPanelCompact(): EditorSession["rightPanelCompact"];
+    set rightPanelCompact(value: EditorSession["rightPanelCompact"]);
+    get printPosition(): EditorSession["printPosition"];
+    set printPosition(value: EditorSession["printPosition"]);
+    get printVariant(): EditorSession["printVariant"];
+    set printVariant(value: EditorSession["printVariant"]);
+    get printPreviewPage(): EditorSession["printPreviewPage"];
+    set printPreviewPage(value: EditorSession["printPreviewPage"]);
+    get printEditing(): EditorSession["printEditing"];
+    set printEditing(value: EditorSession["printEditing"]);
+    get blockedFlowPageIds(): EditorSession["blockedFlowPageIds"];
+    set blockedFlowPageIds(value: EditorSession["blockedFlowPageIds"]);
+    get previewOpen(): EditorSession["previewOpen"];
+    set previewOpen(value: EditorSession["previewOpen"]);
+    get dataWorkspaceOpen(): EditorSession["dataWorkspaceOpen"];
+    set dataWorkspaceOpen(value: EditorSession["dataWorkspaceOpen"]);
+    get contextMenu(): EditorSession["contextMenu"];
+    set contextMenu(value: EditorSession["contextMenu"]);
+    get layerRevealRevision(): EditorSession["layerRevealRevision"];
+    set layerRevealRevision(value: EditorSession["layerRevealRevision"]);
+    get dark(): EditorSession["dark"];
+    set dark(value: EditorSession["dark"]);
+    get dataPreviewEnabled(): EditorSession["dataPreviewEnabled"];
+    set dataPreviewEnabled(value: EditorSession["dataPreviewEnabled"]);
+    get hostThemeRevision(): EditorSession["hostThemeRevision"];
+    set hostThemeRevision(value: EditorSession["hostThemeRevision"]);
+    get historicalPreviewDocument(): EditorSession["historicalPreviewDocument"];
+    set historicalPreviewDocument(value: EditorSession["historicalPreviewDocument"]);
+    get historicalPreviewVersionId(): EditorSession["historicalPreviewVersionId"];
+    set historicalPreviewVersionId(value: EditorSession["historicalPreviewVersionId"]);
+    get hostStatus(): EditorSession["hostStatus"];
+    set hostStatus(value: EditorSession["hostStatus"]);
+    get doc(): import("exemplara-core").ExemplaraDocument;
+    get canUndo(): boolean;
+    get canRedo(): boolean;
+    get historicalPreviewActive(): boolean;
+    get isPrintTabActive(): boolean;
+    get effectivePrintPreviewPage(): number;
+    get activePage(): import("exemplara-core").Page | null;
+    get selectedNode(): import("exemplara-core").ComponentNode | null;
+    get selectedDefinition(): import("exemplara-core").ComponentDefinition | null;
+    get registryCategories(): Map<string, import("exemplara-core").ComponentDefinition[]>;
+    get capabilityDiagnostics(): import("exemplara-core").UnsupportedDocumentCapability[];
+    snapshot(...args: Parameters<EditorSession["snapshot"]>): ReturnType<EditorSession["snapshot"]>;
+    setActivePage(...args: Parameters<EditorSession["setActivePage"]>): ReturnType<EditorSession["setActivePage"]>;
+    setZoom(...args: Parameters<EditorSession["setZoom"]>): ReturnType<EditorSession["setZoom"]>;
+    setDrag(...args: Parameters<EditorSession["setDrag"]>): ReturnType<EditorSession["setDrag"]>;
+    applyDragPayload(...args: Parameters<EditorSession["applyDragPayload"]>): ReturnType<EditorSession["applyDragPayload"]>;
+    getDefinition(...args: Parameters<EditorSession["getDefinition"]>): ReturnType<EditorSession["getDefinition"]>;
+    get expressionRuntime(): import("exemplara-core/shared").TemplateExpressionRuntime;
+    hasPlugin(...args: Parameters<EditorSession["hasPlugin"]>): ReturnType<EditorSession["hasPlugin"]>;
+    isProvidedCapabilityEnabled(...args: Parameters<EditorSession["isProvidedCapabilityEnabled"]>): ReturnType<EditorSession["isProvidedCapabilityEnabled"]>;
+    autocompleteSuggestions(...args: Parameters<EditorSession["autocompleteSuggestions"]>): ReturnType<EditorSession["autocompleteSuggestions"]>;
+    setHostStatus(...args: Parameters<EditorSession["setHostStatus"]>): ReturnType<EditorSession["setHostStatus"]>;
+    replaceDocument(...args: Parameters<EditorSession["replaceDocument"]>): ReturnType<EditorSession["replaceDocument"]>;
+    previewHistoricalDocument(...args: Parameters<EditorSession["previewHistoricalDocument"]>): ReturnType<EditorSession["previewHistoricalDocument"]>;
+    clearHistoricalPreview(...args: Parameters<EditorSession["clearHistoricalPreview"]>): ReturnType<EditorSession["clearHistoricalPreview"]>;
+    isDarkChrome(...args: Parameters<EditorSession["isDarkChrome"]>): ReturnType<EditorSession["isDarkChrome"]>;
+    toggleChromeTheme(...args: Parameters<EditorSession["toggleChromeTheme"]>): ReturnType<EditorSession["toggleChromeTheme"]>;
+    openPanel(...args: Parameters<EditorSession["openPanel"]>): ReturnType<EditorSession["openPanel"]>;
+    isPanelCompact(...args: Parameters<EditorSession["isPanelCompact"]>): ReturnType<EditorSession["isPanelCompact"]>;
+    setPanelCompact(...args: Parameters<EditorSession["setPanelCompact"]>): ReturnType<EditorSession["setPanelCompact"]>;
+    togglePanelCompact(...args: Parameters<EditorSession["togglePanelCompact"]>): ReturnType<EditorSession["togglePanelCompact"]>;
+    openDataWorkspace(...args: Parameters<EditorSession["openDataWorkspace"]>): ReturnType<EditorSession["openDataWorkspace"]>;
+    closeDataWorkspace(...args: Parameters<EditorSession["closeDataWorkspace"]>): ReturnType<EditorSession["closeDataWorkspace"]>;
+    setAutoFlow(...args: Parameters<EditorSession["setAutoFlow"]>): ReturnType<EditorSession["setAutoFlow"]>;
+    toggleAutoFlow(...args: Parameters<EditorSession["toggleAutoFlow"]>): ReturnType<EditorSession["toggleAutoFlow"]>;
+    canRunCommand(...args: Parameters<EditorSession["canRunCommand"]>): ReturnType<EditorSession["canRunCommand"]>;
+    runCommand(...args: Parameters<EditorSession["runCommand"]>): ReturnType<EditorSession["runCommand"]>;
+    canRunExtensionCommand(...args: Parameters<EditorSession["canRunExtensionCommand"]>): ReturnType<EditorSession["canRunExtensionCommand"]>;
+    runExtensionCommand(...args: Parameters<EditorSession["runExtensionCommand"]>): ReturnType<EditorSession["runExtensionCommand"]>;
+    saveToHost(...args: Parameters<EditorSession["saveToHost"]>): ReturnType<EditorSession["saveToHost"]>;
+    select(...args: Parameters<EditorSession["select"]>): ReturnType<EditorSession["select"]>;
+    selectAndRevealNode(...args: Parameters<EditorSession["selectAndRevealNode"]>): ReturnType<EditorSession["selectAndRevealNode"]>;
+    selectParent(...args: Parameters<EditorSession["selectParent"]>): ReturnType<EditorSession["selectParent"]>;
+    revealInLayers(...args: Parameters<EditorSession["revealInLayers"]>): ReturnType<EditorSession["revealInLayers"]>;
+    openContextMenu(...args: Parameters<EditorSession["openContextMenu"]>): ReturnType<EditorSession["openContextMenu"]>;
+    closeContextMenu(...args: Parameters<EditorSession["closeContextMenu"]>): ReturnType<EditorSession["closeContextMenu"]>;
+    setDataPreview(...args: Parameters<EditorSession["setDataPreview"]>): ReturnType<EditorSession["setDataPreview"]>;
+    getDataContext(...args: Parameters<EditorSession["getDataContext"]>): ReturnType<EditorSession["getDataContext"]>;
+    addComponent(...args: Parameters<EditorSession["addComponent"]>): ReturnType<EditorSession["addComponent"]>;
+    addBlock(...args: Parameters<EditorSession["addBlock"]>): ReturnType<EditorSession["addBlock"]>;
+    insertAssetImage(...args: Parameters<EditorSession["insertAssetImage"]>): ReturnType<EditorSession["insertAssetImage"]>;
+    applyAssetToImage(...args: Parameters<EditorSession["applyAssetToImage"]>): ReturnType<EditorSession["applyAssetToImage"]>;
+    registerInlineExpressionTarget(...args: Parameters<EditorSession["registerInlineExpressionTarget"]>): ReturnType<EditorSession["registerInlineExpressionTarget"]>;
+    insertExpression(...args: Parameters<EditorSession["insertExpression"]>): ReturnType<EditorSession["insertExpression"]>;
+    moveNode(...args: Parameters<EditorSession["moveNode"]>): ReturnType<EditorSession["moveNode"]>;
+    updateProps(...args: Parameters<EditorSession["updateProps"]>): ReturnType<EditorSession["updateProps"]>;
+    commitRichTextAuthoring(...args: Parameters<EditorSession["commitRichTextAuthoring"]>): ReturnType<EditorSession["commitRichTextAuthoring"]>;
+    commitPropAuthoring(...args: Parameters<EditorSession["commitPropAuthoring"]>): ReturnType<EditorSession["commitPropAuthoring"]>;
+    updatePaginationRules(...args: Parameters<EditorSession["updatePaginationRules"]>): ReturnType<EditorSession["updatePaginationRules"]>;
+    beginRichTextEdit(...args: Parameters<EditorSession["beginRichTextEdit"]>): ReturnType<EditorSession["beginRichTextEdit"]>;
+    setStyleBinding(...args: Parameters<EditorSession["setStyleBinding"]>): ReturnType<EditorSession["setStyleBinding"]>;
+    setStyleRuleAttachment(...args: Parameters<EditorSession["setStyleRuleAttachment"]>): ReturnType<EditorSession["setStyleRuleAttachment"]>;
+    createReusableStyleClass(...args: Parameters<EditorSession["createReusableStyleClass"]>): ReturnType<EditorSession["createReusableStyleClass"]>;
+    getStyleBinding(...args: Parameters<EditorSession["getStyleBinding"]>): ReturnType<EditorSession["getStyleBinding"]>;
+    removeNode(...args: Parameters<EditorSession["removeNode"]>): ReturnType<EditorSession["removeNode"]>;
+    duplicateNode(...args: Parameters<EditorSession["duplicateNode"]>): ReturnType<EditorSession["duplicateNode"]>;
+    moveBy(...args: Parameters<EditorSession["moveBy"]>): ReturnType<EditorSession["moveBy"]>;
+    createSymbolFromNode(...args: Parameters<EditorSession["createSymbolFromNode"]>): ReturnType<EditorSession["createSymbolFromNode"]>;
+    insertSymbolInstance(...args: Parameters<EditorSession["insertSymbolInstance"]>): ReturnType<EditorSession["insertSymbolInstance"]>;
+    detachSymbol(...args: Parameters<EditorSession["detachSymbol"]>): ReturnType<EditorSession["detachSymbol"]>;
+    renameSymbol(...args: Parameters<EditorSession["renameSymbol"]>): ReturnType<EditorSession["renameSymbol"]>;
+    removeSymbol(...args: Parameters<EditorSession["removeSymbol"]>): ReturnType<EditorSession["removeSymbol"]>;
+    copyNode(...args: Parameters<EditorSession["copyNode"]>): ReturnType<EditorSession["copyNode"]>;
+    pasteClipboard(...args: Parameters<EditorSession["pasteClipboard"]>): ReturnType<EditorSession["pasteClipboard"]>;
+    addPage(...args: Parameters<EditorSession["addPage"]>): ReturnType<EditorSession["addPage"]>;
+    duplicatePage(...args: Parameters<EditorSession["duplicatePage"]>): ReturnType<EditorSession["duplicatePage"]>;
+    ensureWebChrome(...args: Parameters<EditorSession["ensureWebChrome"]>): ReturnType<EditorSession["ensureWebChrome"]>;
+    promoteSelectionToSiteChrome(...args: Parameters<EditorSession["promoteSelectionToSiteChrome"]>): ReturnType<EditorSession["promoteSelectionToSiteChrome"]>;
+    removePage(...args: Parameters<EditorSession["removePage"]>): ReturnType<EditorSession["removePage"]>;
+    openPrintChrome(...args: Parameters<EditorSession["openPrintChrome"]>): ReturnType<EditorSession["openPrintChrome"]>;
+    updatePrintVariantForPage(...args: Parameters<EditorSession["updatePrintVariantForPage"]>): ReturnType<EditorSession["updatePrintVariantForPage"]>;
+    startPrintSection(...args: Parameters<EditorSession["startPrintSection"]>): ReturnType<EditorSession["startPrintSection"]>;
+    removePrintSectionBreak(...args: Parameters<EditorSession["removePrintSectionBreak"]>): ReturnType<EditorSession["removePrintSectionBreak"]>;
+    setPrintSectionLinked(...args: Parameters<EditorSession["setPrintSectionLinked"]>): ReturnType<EditorSession["setPrintSectionLinked"]>;
+    updatePrintSection(...args: Parameters<EditorSession["updatePrintSection"]>): ReturnType<EditorSession["updatePrintSection"]>;
+    updateParagraphFormatting(...args: Parameters<EditorSession["updateParagraphFormatting"]>): ReturnType<EditorSession["updateParagraphFormatting"]>;
+    applyPageFlow(...args: Parameters<EditorSession["applyPageFlow"]>): ReturnType<EditorSession["applyPageFlow"]>;
+    setPageBackground(...args: Parameters<EditorSession["setPageBackground"]>): ReturnType<EditorSession["setPageBackground"]>;
+    toggleRegion(...args: Parameters<EditorSession["toggleRegion"]>): ReturnType<EditorSession["toggleRegion"]>;
+    zoomToFit(...args: Parameters<EditorSession["zoomToFit"]>): ReturnType<EditorSession["zoomToFit"]>;
+    undo(...args: Parameters<EditorSession["undo"]>): ReturnType<EditorSession["undo"]>;
+    redo(...args: Parameters<EditorSession["redo"]>): ReturnType<EditorSession["redo"]>;
 }
 export declare function setEditorContext(editor: EditorContext): EditorContext;
 export declare function getEditorContext(): EditorContext;

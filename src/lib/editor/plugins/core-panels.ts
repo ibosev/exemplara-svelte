@@ -1,3 +1,4 @@
+import { createCorePanelsPlugin as createCorePlugin } from 'exemplara-core/editor/plugins/core-panels';
 import type { Component } from 'svelte';
 import type { EditorPlugin } from '../composition.js';
 import type { EditorPanelProps } from '../extension-types.js';
@@ -29,10 +30,13 @@ export interface CorePanelsPluginOptions {
 }
 
 export function createCorePanelsPlugin(options: CorePanelsPluginOptions = {}): EditorPlugin {
+  const core = createCorePlugin(options);
   return {
+    core,
     id: 'exemplara.core-panels',
     version: '1.0.0',
     setup(api) {
+      api.installCore(core);
       api.addPanel({
         id: 'components',
         label: 'Atoms',

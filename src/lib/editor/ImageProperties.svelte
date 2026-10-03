@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { persistentDisclosure } from './disclosure.js';
   import type { ComponentNode } from '../core/types.js';
   import type { EditorContext } from './context.svelte.js';
 
@@ -168,7 +169,7 @@
     </label>
   </div>
 
-  <details class="exs-details exs-image-advanced">
+  <details class="exs-details exs-image-advanced" {@attach persistentDisclosure(`image:${node.id}`, editor, false)}>
     <summary>Image source and browser options</summary>
     <div class="exs-image-advanced__body">
       <label class="exs-field">

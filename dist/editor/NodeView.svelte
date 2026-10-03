@@ -1,8 +1,8 @@
 <script lang="ts">
-  import NodeView from './NodeView.svelte';
+  import ChildNodeView from './NodeView.svelte';
   import RichTextEditor from './RichTextEditor.svelte';
   import { getEditorContext } from './context.svelte.js';
-  import { draggable, dropzone, dragState, type DropTarget } from './dnd.svelte.js';
+  import { draggable, dropzone, type DropTarget } from './dnd.svelte.js';
   import { resolveDropPosition, dropTargetFor } from '../shared/drop.js';
   import type { RenderContext } from '../renderer/registry.js';
   import {
@@ -129,6 +129,16 @@
     return styleString(shell) || undefined;
   });
 
+  // The shell owns positioning; the inner container supplies the content layout.
+  const containerContentStyle = $derived.by(() => {
+    const style = { ...containerView.style };
+    if (nodeShellStyle) {
+      for (const key of ['position', 'top', 'right', 'bottom', 'left', 'inset', 'z-index', 'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left']) delete style[key];
+      if (containerView.style.top !== undefined && containerView.style.bottom !== undefined) style.height = '100%';
+    }
+    return styleString(style);
+  });
+
   const conditionalVisible = $derived.by(() => {
     if (!isConditional) return true;
     if (!dataResolutionEnabled) return true;
@@ -176,9 +186,9 @@
 
   // Drop indicator states derived from the shared drag store.
   const dropBefore = $derived(
-    dragState.over?.parentId === parentId && dragState.over.index === index && dragState.over.slot === slot,
+    editor.drag.over?.parentId === parentId && editor.drag.over.index === index && editor.drag.over.slot === slot,
   );
-  const dropInside = $derived(dragState.over?.parentId === node.id);
+  const dropInside = $derived(editor.drag.over?.parentId === node.id);
 
   /**
    * Leaf nodes reuse the string renderer so the canvas matches print
@@ -210,7 +220,7 @@
   function resolveDropTarget(event: DragEvent): DropTarget | null {
     if (node.locked) return null;
     // Never allow dropping a node into itself.
-    if (dragState.active?.kind === 'move' && dragState.active.nodeId === node.id) return null;
+    if (editor.drag.active?.kind === 'move' && editor.drag.active.nodeId === node.id) return null;
 
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     const position = resolveDropPosition(event.clientY, rect, isContainer);
@@ -274,27 +284,27 @@
     oncontextmenu={onContextMenu}
     onmouseover={onMouseOver}
     onmouseout={onMouseOut}
-    {@attach draggable(() => ({ kind: 'move', nodeId: node.id }))}
+    {@attach draggable(() => ({ kind: 'move', nodeId: node.id }), editor)}
     {@attach dropzone(() => ({ editor, target: resolveDropTarget }))}
   >
     {#each node.children ?? [] as child, childIndex (child.id)}
-      <NodeView node={child} parentId={node.id} index={childIndex} dataContext={currentDataContext} pageIndex={currentPageIndex} totalPages={currentTotalPages} />
+      <ChildNodeView node={child} parentId={node.id} index={childIndex} dataContext={currentDataContext} pageIndex={currentPageIndex} totalPages={currentTotalPages} />
     {/each}
   </svelte:element>
 {:else if importedSiteChrome && isRepeater}
   {#each repeatedContexts as repeatedData, repeatedIndex (repeatedIndex)}
     {#each node.children ?? [] as child, childIndex (`${repeatedIndex}:${child.id}`)}
-      <NodeView node={child} parentId={node.id} index={childIndex} dataContext={repeatedData} pageIndex={currentPageIndex} totalPages={currentTotalPages} />
+      <ChildNodeView node={child} parentId={node.id} index={childIndex} dataContext={repeatedData} pageIndex={currentPageIndex} totalPages={currentTotalPages} />
     {/each}
   {/each}
 {:else if importedSiteChrome && isConditional}
   {#if conditionalVisible}
     {#each node.children ?? [] as child, childIndex (child.id)}
-      <NodeView node={child} parentId={node.id} index={childIndex} dataContext={currentDataContext} pageIndex={currentPageIndex} totalPages={currentTotalPages} />
+      <ChildNodeView node={child} parentId={node.id} index={childIndex} dataContext={currentDataContext} pageIndex={currentPageIndex} totalPages={currentTotalPages} />
     {/each}
   {:else}
     {#each node.slots?.else ?? [] as child, childIndex (child.id)}
-      <NodeView node={child} parentId={node.id} index={childIndex} slot="else" dataContext={currentDataContext} pageIndex={currentPageIndex} totalPages={currentTotalPages} />
+      <ChildNodeView node={child} parentId={node.id} index={childIndex} slot="else" dataContext={currentDataContext} pageIndex={currentPageIndex} totalPages={currentTotalPages} />
     {/each}
   {/if}
 {:else}
@@ -319,7 +329,7 @@
   oncontextmenu={onContextMenu}
   onmouseover={onMouseOver}
   onmouseout={onMouseOut}
-  {@attach draggable(() => ({ kind: 'move', nodeId: node.id }))}
+  {@attach draggable(() => ({ kind: 'move', nodeId: node.id }), editor)}
   {@attach dropzone(() => ({ editor, target: resolveDropTarget }))}
 >
   {#if isEditing}
@@ -334,13 +344,13 @@
       class:exs-region--droptarget={dropInside && !isDecorativeEmptyContainer}
       data-node-id={node.id}
       id={String(resolvedNode.props.htmlId ?? '') || undefined}
-      style={styleString(containerView.style)}
+      style={containerContentStyle}
     >
       {#if showEmptyChrome}
         <span>Drop components here</span>
       {:else if children.length > 0}
         {#each children as child, childIndex (child.id)}
-          <NodeView node={child} parentId={node.id} index={childIndex} dataContext={currentDataContext} pageIndex={currentPageIndex} totalPages={currentTotalPages} />
+          <ChildNodeView node={child} parentId={node.id} index={childIndex} dataContext={currentDataContext} pageIndex={currentPageIndex} totalPages={currentTotalPages} />
         {/each}
       {/if}
     </div>
@@ -353,7 +363,7 @@
         <div
           class={`${columnView.classes.join(' ')} exs-node__slot`}
           class:exs-node__container--empty={slotChildren.length === 0}
-          class:exs-region--droptarget={dragState.over?.parentId === node.id && dragState.over.slot === slotName}
+          class:exs-region--droptarget={editor.drag.over?.parentId === node.id && editor.drag.over.slot === slotName}
           style={styleString(columnView.style)}
           {@attach dropzone(() => ({
             editor,
@@ -364,7 +374,7 @@
             <span>{slotConfig.label ?? slotName}</span>
           {:else}
             {#each slotChildren as child, childIndex (child.id)}
-              <NodeView node={child} parentId={node.id} index={childIndex} slot={slotName} dataContext={currentDataContext} pageIndex={currentPageIndex} totalPages={currentTotalPages} />
+              <ChildNodeView node={child} parentId={node.id} index={childIndex} slot={slotName} dataContext={currentDataContext} pageIndex={currentPageIndex} totalPages={currentTotalPages} />
             {/each}
           {/if}
         </div>
@@ -374,7 +384,7 @@
     <div class={repeaterView.classes.join(' ')} data-node-id={node.id} style={styleString(repeaterView.style)}>
       {#each repeatedContexts as repeatedData, repeatedIndex (repeatedIndex)}
         {#each node.children ?? [] as child, childIndex (`${repeatedIndex}:${child.id}`)}
-          <NodeView node={child} parentId={node.id} index={childIndex} dataContext={repeatedData} pageIndex={currentPageIndex} totalPages={currentTotalPages} />
+          <ChildNodeView node={child} parentId={node.id} index={childIndex} dataContext={repeatedData} pageIndex={currentPageIndex} totalPages={currentTotalPages} />
         {/each}
       {/each}
     </div>
@@ -382,11 +392,11 @@
     <div class={conditionalView.classes.join(' ')} data-node-id={node.id} style={styleString(conditionalView.style)}>
       {#if conditionalVisible}
         {#each node.children ?? [] as child, childIndex (child.id)}
-          <NodeView node={child} parentId={node.id} index={childIndex} dataContext={currentDataContext} pageIndex={currentPageIndex} totalPages={currentTotalPages} />
+          <ChildNodeView node={child} parentId={node.id} index={childIndex} dataContext={currentDataContext} pageIndex={currentPageIndex} totalPages={currentTotalPages} />
         {/each}
       {:else}
         {#each node.slots?.else ?? [] as child, childIndex (child.id)}
-          <NodeView node={child} parentId={node.id} index={childIndex} slot="else" dataContext={currentDataContext} pageIndex={currentPageIndex} totalPages={currentTotalPages} />
+          <ChildNodeView node={child} parentId={node.id} index={childIndex} slot="else" dataContext={currentDataContext} pageIndex={currentPageIndex} totalPages={currentTotalPages} />
         {/each}
       {/if}
     </div>

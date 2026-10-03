@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { bindUiState } from './ui-state.js';
   import { tick, untrack } from 'svelte';
   import LayerItem from './LayerItem.svelte';
   import { getEditorContext } from './context.svelte.js';
@@ -10,7 +11,8 @@
   import type { LayerTreeNode } from '../shared/layer-tree.js';
 
   const editor = getEditorContext();
-  let expansion = $state<Record<string, boolean>>({});
+  const uiModel = $derived(editor.session.ui.get('layers'));
+  const ui = $derived(bindUiState(uiModel));
   let layersElement = $state<HTMLElement | null>(null);
 
   const tree = $derived(buildDocumentLayerTree(editor.doc, (type) => editor.getDefinition(type)));
@@ -23,11 +25,11 @@
   }
 
   function isExpanded(node: LayerTreeNode): boolean {
-    return expansion[node.id] ?? defaultExpanded(node);
+    return ui.expansion[node.id] ?? defaultExpanded(node);
   }
 
   function toggle(node: LayerTreeNode): void {
-    expansion = { ...expansion, [node.id]: !isExpanded(node) };
+    ui.expansion = { ...ui.expansion, [node.id]: !isExpanded(node) };
   }
 
   $effect(() => {
@@ -40,14 +42,14 @@
     let changed = false;
     // Expansion changes are user-controlled. Reading them without tracking
     // prevents this reveal effect from immediately undoing a manual collapse.
-    const nextExpansion = { ...untrack(() => expansion) };
+    const nextExpansion = { ...untrack(() => ui.expansion) };
     for (const ancestor of path.slice(0, -1)) {
       if (ancestor.children.length > 0 && nextExpansion[ancestor.id] !== true) {
         nextExpansion[ancestor.id] = true;
         changed = true;
       }
     }
-    if (changed) expansion = nextExpansion;
+    if (changed) ui.expansion = nextExpansion;
 
     void tick().then(() => {
       layersElement
