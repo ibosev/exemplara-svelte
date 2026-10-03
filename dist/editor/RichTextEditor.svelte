@@ -61,6 +61,12 @@
     editor.session.ui.commitRichText(node.id);
   }
   function cancel(): void { editor.session.ui.cancelRichText(node.id); }
+  // Chrome blurs a focused element as it is removed. Unmounting (cancel, view detach)
+  // must not commit; the draft is already synced on input.
+  function commitOnBlur(): void {
+    const element = surface;
+    queueMicrotask(() => { if (element?.isConnected) commit(); });
+  }
 
   function caretOffsetWithin(element: HTMLElement, range: Range): number {
     const prefix = range.cloneRange();
@@ -244,7 +250,7 @@
     class="exs-richtext__surface"
     contenteditable="true"
     bind:this={surface}
-    onblur={commit}
+    onblur={commitOnBlur}
     oninput={updateAutocomplete}
     onkeydown={onKeydown}
     onclick={(event) => event.stopPropagation()}

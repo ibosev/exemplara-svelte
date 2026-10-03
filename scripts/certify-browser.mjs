@@ -64,6 +64,12 @@ try {
   assert.equal(await richText.textContent(), 'Retained rich-text draft');
   await richText.press('Control+Enter');
   assert.equal(await page.locator('.exs-inspector textarea').first().inputValue(), 'Retained rich-text draft');
+  // Escape unmounts the focused surface; the resulting blur must not commit the cancelled draft.
+  await page.locator('.exs-node--selected').dblclick();
+  await richText.fill('Cancelled draft');
+  await richText.press('Escape');
+  await richText.waitFor({ state: 'detached' });
+  assert.equal(await page.locator('.exs-inspector textarea').first().inputValue(), 'Retained rich-text draft');
   await page.getByRole('button', { name: /^Settings/ }).click();
   await page.getByRole('button', { name: 'Website mode', exact: true }).click();
   await page.locator('.exs-web-page').first().waitFor();
