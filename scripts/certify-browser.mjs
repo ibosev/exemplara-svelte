@@ -52,7 +52,7 @@ try {
   await views.getByRole('button', { name: 'Editor', exact: true }).click();
   assert.equal(await paste.inputValue(), '{"uncommitted":{"value":42}}');
   await page.getByRole('button', { name: 'Add these fields', exact: true }).click();
-  await page.getByRole('tab', { name: 'Edit structure', exact: true }).click();
+  await page.getByRole('tab', { name: 'Edit data', exact: true }).click();
   await page.getByRole('navigation', { name: 'Right panels', exact: true }).getByRole('button', { name: 'Selected', exact: true }).click();
   await page.locator('.exs-node--selected').dblclick();
   const richText = page.locator('.exs-richtext__surface');

@@ -1481,6 +1481,13 @@
   transition: outline-color 0.1s;
 }
 
+/* A grid cell or stretched flex item sizes this wrapper, not the authored
+   container inside it. A one-cell grid lets the container fill it, as it does
+   in the PDF, while its own height and flex values stay as authored. */
+.exs-node--container {
+  display: grid;
+}
+
 .exs-node--hovered {
   outline-color: color-mix(in srgb, var(--exs-accent) 42%, transparent);
 }

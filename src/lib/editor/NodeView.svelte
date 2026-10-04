@@ -322,6 +322,7 @@
   class:exs-node--symbol={!!node.symbolId}
   class:exs-node--editing={isEditing}
   class:exs-node--decorative-empty={isDecorativeEmptyContainer}
+  class:exs-node--container={isPlainContainer && !isEditing && !nodeShellStyle}
   data-node-id={node.id}
   style={nodeShellStyle}
   onclick={onClick}
