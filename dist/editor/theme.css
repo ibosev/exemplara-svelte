@@ -1079,14 +1079,10 @@
   font-weight: 600;
 }
 
-/* --- Word-like horizontal paragraph ruler --- */
+/* --- Page ruler. The bar is measured from the sheet, not from the toolbar. --- */
 .exs-ruler {
+  position: relative;
   min-height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 4px 12px;
   border-bottom: 1px solid var(--exs-border);
   background: var(--exs-panel);
   flex-shrink: 0;
@@ -1095,11 +1091,12 @@
 
 .exs-ruler--disabled { opacity: 0.62; }
 .exs-ruler__tabs {
+  position: absolute;
+  z-index: 2;
+  left: 8px;
+  top: 4px;
   display: grid;
   grid-template-columns: 17px 17px;
-  justify-content: end;
-  /* Match the help label so the ruler bar stays centered over the paper body. */
-  flex: 0 0 145px;
 }
 .exs-ruler__tabs button {
   height: 14px;
@@ -1112,15 +1109,27 @@
 }
 .exs-ruler__tabs .exs-ruler__tab-mode--active { background: var(--exs-accent-soft); color: var(--exs-accent); }
 .exs-ruler__bar {
-  position: relative;
-  max-width: calc(100% - 322px);
+  position: absolute;
+  z-index: 1;
+  top: 5px;
+  box-sizing: border-box;
   height: 25px;
-  border: 1px solid var(--exs-border-strong);
+  border: 0;
   border-radius: 2px;
+  box-shadow: inset 0 0 0 1px var(--exs-border-strong);
   background: #fff;
   cursor: crosshair;
-  flex-shrink: 1;
 }
+.exs-ruler--bar-above .exs-ruler__tabs { z-index: 0; }
+.exs-ruler__margin {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--exs-bg);
+  pointer-events: none;
+}
+.exs-ruler__margin--end { left: auto; right: 0; }
 .exs-ruler__ticks {
   position: absolute;
   inset: 0;
@@ -1159,7 +1168,6 @@
 .exs-ruler__marker--left::before,
 .exs-ruler__marker--right::before { border-bottom:7px solid var(--exs-accent); }
 .exs-ruler__tab-stop { bottom:0; height:12px; cursor:pointer; border-bottom:2px solid var(--exs-accent); }
-.exs-ruler__hint { flex: 0 0 145px; color: var(--exs-muted); font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .exs-upload {
   gap: 7px;
