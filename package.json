@@ -1,6 +1,6 @@
 {
   "name": "exemplara-svelte",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Native drag-and-drop builder for responsive websites and print-first PDF templates — Svelte 5",
   "license": "MIT",
   "author": "Ivaylo Bosev",
