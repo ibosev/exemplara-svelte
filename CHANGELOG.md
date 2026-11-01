@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.4 — 2026-11-01
+
+Release housekeeping. The 0.3.3 package was published from an uncommitted working tree; its sources are now committed and tagged `v0.3.3`, and this release is built from that tagged state. No API or behavior changes from 0.3.3; still requires `exemplara-core@^0.1.1`.
+
+Consumers that worked around hover-driven Layers re-renders on 0.3.2 (for example by wrapping `LayerPanel` with an untracked `getDefinition`) can drop the workaround: since 0.3.3, `getDefinition` tracks only the registry revision.
+
 ## 0.3.3 — 2026-10-10
 
 Architecture review follow-up, paired with `exemplara-core@0.1.1`. The aim was to support the Solid wrapper while preserving Svelte and Shablonix editing behavior. Recorded on 2026-10-11 from the implementation, regression tests, and release verification logs.
