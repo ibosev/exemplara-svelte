@@ -2,6 +2,8 @@
 
 The document engine, renderer, and editor state now live in the separate MIT package `exemplara-core`. This package supplies the Svelte view. Existing `exemplara-svelte/core`, `/renderer`, and `/shared` imports re-export the canonical implementations.
 
+See the [changelog](CHANGELOG.md) for release changes, compatibility guidance, and verification results.
+
 For a host-owned session that survives view unmounts:
 
 ```svelte
@@ -21,9 +23,11 @@ For a host-owned session that survives view unmounts:
 
 Without `session`, the view creates and disposes its own session. Supply the same composition's Svelte views when attaching an existing session. `EditorContext` retains its existing properties and methods as a thin `fromStore()` facade; new portable plugins target `EditorSession` from `exemplara-core/editor`. Svelte plugins expose their portable plugin as `.core` and register components/icons in their Svelte `setup`. Legacy extensions remain supported; callbacks that use Svelte/DOM APIs must be migrated before using them in another wrapper. All mutable editor and feature state, including component drafts, filters, confirmations, sidebar geometry, disclosures, uploads, and version-history progress, belongs to `EditorSession` and its `ui` models in the core package. Svelte keeps DOM references, component registrations, caret insertion, browser resource handles, and derived rendering projections. `bindUiState()` bridges the typed core models through `fromStore()`; it defines no state.
 
+Portable `.core` setup, including fallback `api.installCore(plugin)` calls, runs once per session and survives view detach. Legacy view setup runs for each attachment; its registrations and returned disposer belong to that view. Detached legacy commands are unavailable, and remounting creates fresh callbacks bound to the new `EditorContext`. Hosts using `<Editor>` or `<ComposableEditor>` with view-owned sessions need no migration. Hosts that need a command while their view is detached should move that behavior into `.core`. Failed attachment rolls back managed registrations and leaves an existing view usable.
+
 `pnpm check:state` audits state ownership across the wrapper, private plugins, and playground. `pnpm test:packages` certifies isolated tarball consumers, strict headless declarations, Svelte compilation/runtime, and Chromium PDF output. On a host without browser networking, `EXEMPLARA_STATIC_ONLY=1 pnpm test:packages` runs packaging, headless execution/types, and Svelte compilation only; it explicitly reports the skipped runtime/PDF checks.
 
-Sibling development requires `../exemplara-core` and, for consumer certification, `../exemplara-plugins` and `../exemplara-playground`. The local pnpm override links core; published dependencies use `^0.1.0`. Run `pnpm check`, `pnpm test:run`, `pnpm test:packages`, and `pnpm test:browser` (Chrome defaults to `/usr/bin/google-chrome`, override `EXEMPLARA_CHROMIUM_PATH`). Shablonix consumes pinned public tarballs under `vendor/exemplara` until npm publication. Its private plugin submodule must be updated along with the public package inputs.
+Sibling development requires `../exemplara-core` and, for consumer certification, `../exemplara-plugins` and `../exemplara-playground`. The local pnpm override links core; `exemplara-svelte@0.3.3` requires `exemplara-core@^0.1.1`. Run `pnpm check`, `pnpm test:run`, `pnpm test:packages`, and `pnpm test:browser` (Chrome defaults to `/usr/bin/google-chrome`, override `EXEMPLARA_CHROMIUM_PATH`). Publish Core before the wrapper. Shablonix uses published public packages and a pinned private-plugin submodule; its editor's `EXEMPLARA_LOCAL=1` Vite mode checks the built sibling Core/Svelte pair without changing production dependencies. That mode does not change TypeScript resolution, so consumer typechecks must also resolve the new package declarations before a release is accepted.
 
 Drag-and-drop builder for print-first PDF templates and responsive websites. The editor is Svelte 5. The document model, command engine, renderer, and pagination planner are plain TypeScript.
 

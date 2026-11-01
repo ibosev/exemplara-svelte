@@ -5,13 +5,16 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const playground = resolve(root, '../exemplara-playground');
-const server = await createServer({ root: playground, configFile: resolve(playground, 'vite.config.ts'), server: { host: '127.0.0.1', port: 0 } });
+const server = await createServer({ root: playground, configFile: resolve(playground, 'vite.config.ts'), server: { host: '127.0.0.1', port: 0, fs: { allow: [root, playground] } } });
 await server.listen();
 let browser;
 try {
   browser = await chromium.launch({ executablePath: process.env.EXEMPLARA_CHROMIUM_PATH ?? '/usr/bin/google-chrome', args: ['--no-sandbox'] });
   const page = await browser.newPage();
   const errors = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto(server.resolvedUrls.local[0]);
+  const regressions = await page.evaluate(async url => (await import(url)).runRegressions(), `${server.resolvedUrls.local[0]}@fs/${resolve(root, 'tests/browser-regressions.svelte.ts')}`);
+  assert.deepEqual(regressions.filter(result => result.error), [], JSON.stringify(regressions, null, 2));
   await page.goto(`${server.resolvedUrls.local[0]}?fixture=session-portability`);
   await page.getByLabel('Document name', { exact: true }).fill('Retained document');
   await page.getByLabel('Document name', { exact: true }).press('Tab');
@@ -79,5 +82,5 @@ try {
   await page.getByRole('navigation', { name: 'Right panels', exact: true }).getByRole('button', { name: 'Theme', exact: true }).click();
   await page.getByRole('heading', { name: 'Whole page', exact: true }).waitFor();
   assert.deepEqual(errors, []);
-  console.log('Browser insertion, content editing, Inspector, view reattachment, selection, zoom, undo/redo private panels, sidebar widths, disclosures, JSON drafts, rich-text drafts and application feature replacement passed.');
+  console.log('Browser escaping/reactive getters, insertion, content editing, Inspector, view reattachment, selection, zoom, undo/redo private panels, sidebar widths, disclosures, JSON drafts, rich-text drafts and application feature replacement passed.');
 } finally { await browser?.close(); await server.close(); }

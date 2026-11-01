@@ -1,2 +1,6 @@
 minimumReleaseAgeExclude:
-  - exemplara-core@0.1.0
+  - exemplara-core
+
+# Verify the adapter against the Core implementation being developed beside it.
+overrides:
+  exemplara-core: link:../exemplara-core

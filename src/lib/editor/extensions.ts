@@ -1,6 +1,7 @@
 import {
   EditorExtensionRegistry as CoreRegistry,
   type EditorPlugin as CorePlugin,
+  type EditorExtensionApi as CoreApi,
   type EditorSession,
 } from "exemplara-core/editor";
 import type { ComponentRegistry } from "../core/registry.js";
@@ -46,9 +47,6 @@ export type {
   ResolvedEditorMenuItem,
 } from "./actions.js";
 
-const attachedFacades = new WeakMap<CoreRegistry, EditorContext>();
-const installedViews = new WeakMap<CoreRegistry, Set<string>>();
-
 export interface EditorExtensionRegistryOptions {
   policy?: CapabilityPolicy;
   services?: Readonly<Record<string, unknown>>;
@@ -85,14 +83,9 @@ export class EditorExtensionRegistry {
         renderRuntime: options.renderRuntime ?? legacyRenderRuntime(),
       });
     const core = this.core;
-    const installed = installedViews.get(core) ?? new Set<string>();
-    installedViews.set(core, installed);
-    for (const id of options.installedPlugins ?? []) installed.add(id);
     this.#editor = options.editor?.();
-    if (this.#editor) attachedFacades.set(core, this.#editor);
-    let reusing = false;
     const facade = (session: EditorSession): EditorContext =>
-      attachedFacades.get(core) ?? (session as unknown as EditorContext);
+      this.#editor ?? (session as unknown as EditorContext);
     const rememberIcon = (
       id: string,
       icon: EditorCommandDefinition["icon"],
@@ -109,23 +102,28 @@ export class EditorExtensionRegistry {
         throw new Error(`Duplicate editor ${kind} id: ${value.id}`);
       map.set(value.id, value);
     };
-    const api: EditorExtensionApi = {
-      ...core.api,
+    const createApi = (portable: CoreApi): EditorExtensionApi => ({
+      ...portable,
       installCore: (plugin: CorePlugin) => {
-        if (installed.has(plugin.id)) return;
-        installed.add(plugin.id);
-        const dispose = plugin.setup(core.api);
-        if (dispose) this.#disposers.push(dispose);
+        if (!options.installedPlugins?.includes(plugin.id))
+          portable.installCore(plugin);
       },
-      addContributionIcon: (id, icon) => { this.#icons.set(id, icon); },
-      addComponentIcon: (type, icon) =>
-        (options.iconRegistry ?? legacyComponentIconRegistry).register(
-          type,
-          icon,
-        ),
+      addContributionIcon: (id, icon) => {
+        this.#icons.set(id, icon);
+      },
+      addComponentIcon: (type, icon) => {
+        const icons = options.iconRegistry ?? legacyComponentIconRegistry;
+        const previous = icons.get(type);
+        icons.register(type, icon);
+        this.#disposers.push(() => {
+          if (icons.get(type) !== icon) return;
+          if (previous) icons.register(type, previous);
+          else icons.unregister(type);
+        });
+      },
       addPanel: ({ component, icon, ...panel }) => {
         addView("panel", this.#panels, { ...panel, icon, component });
-        if (!core.panel(panel.id)) core.api.addPanel(panel);
+        if (!core.panel(panel.id)) portable.addPanel(panel);
       },
       addInspectorSection: ({ component, visible, ...section }) => {
         addView("inspector section", this.#sections, {
@@ -134,7 +132,7 @@ export class EditorExtensionRegistry {
           visible,
         });
         if (!core.hasViewContribution("inspector-section", section.id))
-          core.api.addInspectorSection({
+          portable.addInspectorSection({
             ...section,
             visible:
               visible && ((editor, node) => visible(facade(editor), node)),
@@ -147,7 +145,7 @@ export class EditorExtensionRegistry {
           visible,
         });
         if (!core.hasViewContribution("toolbar-cluster", cluster.id))
-          core.api.addToolbarCluster({
+          portable.addToolbarCluster({
             ...cluster,
             visible: visible && ((editor) => visible(facade(editor))),
           });
@@ -159,13 +157,13 @@ export class EditorExtensionRegistry {
           visible,
         });
         if (!core.hasViewContribution("canvas-decoration", decoration.id))
-          core.api.addCanvasDecoration({
+          portable.addCanvasDecoration({
             ...decoration,
             visible: visible && ((editor) => visible(facade(editor))),
           });
       },
       addCommand: ({ icon, canRun, execute, ...command }) =>
-        core.api.addCommand({
+        portable.addCommand({
           ...command,
           icon: rememberIcon(command.id, icon),
           canRun:
@@ -173,24 +171,24 @@ export class EditorExtensionRegistry {
           execute: (editor, context) => execute(facade(editor), context),
         }),
       addMenuItem: ({ when, ...item }) =>
-        core.api.addMenuItem({
+        portable.addMenuItem({
           ...item,
           when: when && ((editor, context) => when(facade(editor), context)),
         }),
       addKeybinding: ({ when, ...binding }) =>
-        core.api.addKeybinding({
+        portable.addKeybinding({
           ...binding,
           when: when && ((editor, context) => when(facade(editor), context)),
         }),
       addOutlineAction: ({ icon, canRun, execute, ...action }) =>
-        core.api.addOutlineAction({
+        portable.addOutlineAction({
           ...action,
           icon: rememberIcon(action.id, icon),
           canRun: canRun && ((editor, node) => canRun(facade(editor), node)),
           execute: (editor, node) => execute(facade(editor), node),
         }),
       addBlock: ({ icon, insert, ...block }) =>
-        core.api.addBlock({
+        portable.addBlock({
           ...block,
           icon: rememberIcon(block.id, icon),
           insert:
@@ -199,41 +197,20 @@ export class EditorExtensionRegistry {
               insert({ ...context, editor: facade(context.editor) })),
         }),
       addStyleField: ({ visible, ...field }) =>
-        core.api.addStyleField({
+        portable.addStyleField({
           ...field,
           visible: visible && ((editor, node) => visible(facade(editor), node)),
         }),
-    };
-    const behaviorMethods = [
-      "addComponent",
-      "addBindingTransform",
-      "addBlock",
-      "addCommand",
-      "addMenuItem",
-      "addKeybinding",
-      "addOutlineAction",
-      "addAutocompleteProvider",
-      "addStyleField",
-      "addFormatter",
-      "replaceFormatter",
-      "setExpressionEvaluator",
-    ] as const;
-    for (const method of behaviorMethods) {
-      const original = api[method] as (...args: unknown[]) => void;
-      Object.assign(api, {
-        [method]: (...args: unknown[]) => {
-          if (!reusing) original(...args);
-        },
-      });
-    }
+    });
     try {
-      extensions.forEach((extension, index) => {
-        const id = options.extensionIds?.[index];
-        reusing = !!id && installed.has("view:" + id);
-        const dispose = extension(api);
-        if (dispose) this.#disposers.push(dispose);
-        if (id) installed.add("view:" + id);
-      });
+      this.#disposers.push(
+        core.attach(
+          ...extensions.map(
+            (extension) => (portable: CoreApi) =>
+              extension(createApi(portable)),
+          ),
+        ),
+      );
     } catch (error) {
       this.destroy();
       throw error;
@@ -241,14 +218,23 @@ export class EditorExtensionRegistry {
   }
 
   destroy(): void {
-    if (attachedFacades.get(this.core) === this.#editor)
-      attachedFacades.delete(this.core);
     const errors: unknown[] = [];
     for (const dispose of this.#disposers.splice(0).reverse()) {
-      try { dispose(); } catch (error) { errors.push(error); }
+      try {
+        dispose();
+      } catch (error) {
+        errors.push(error);
+      }
     }
-    if (this.#ownsCore) { try { this.core.destroy(); } catch (error) { errors.push(error); } }
-    if (errors.length) throw new AggregateError(errors, "Editor view cleanup failed.");
+    if (this.#ownsCore) {
+      try {
+        this.core.destroy();
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    if (errors.length)
+      throw new AggregateError(errors, "Editor view cleanup failed.");
   }
   #session(editor: EditorContext): EditorSession {
     editor.track?.();
@@ -361,12 +347,10 @@ export class EditorExtensionRegistry {
     editor: EditorContext,
     node: ComponentNode,
   ): EditorStyleField[] {
-    return this.core
-      .styleFieldsFor(this.#session(editor), node)
-      .map((f) => ({
-        ...f,
-        visible: f.visible && ((e, n) => f.visible!(this.#session(e), n)),
-      }));
+    return this.core.styleFieldsFor(this.#session(editor), node).map((f) => ({
+      ...f,
+      visible: f.visible && ((e, n) => f.visible!(this.#session(e), n)),
+    }));
   }
   get formatters() {
     return this.core.formatters;

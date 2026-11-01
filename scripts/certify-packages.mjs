@@ -40,11 +40,12 @@ await viteBuild({
 console.log('Headless declarations compile with ES2022 only; browser bundle has no Svelte.');
 const view = resolve(temp, 'svelte'); mkdirSync(view);
 writeFileSync(resolve(view, 'package.json'), JSON.stringify({ name: 'exemplara-view-proof', private: true, type: 'module' }));
-run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', ...tarballs, `svelte@${devDependencies.svelte}`], view);
+run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', ...tarballs, `svelte@${devDependencies.svelte}`, `svelte-check@${devDependencies['svelte-check']}`, `typescript@${devDependencies.typescript}`], view);
 copyFileSync(resolve(root, 'scripts/consumers/PackedEditor.svelte'), resolve(view, 'PackedEditor.svelte'));
 writeFileSync(resolve(view, 'env.d.ts'), "declare module '*.css';");
 writeFileSync(resolve(view, 'tsconfig.json'), JSON.stringify({ compilerOptions: { module: 'ESNext', moduleResolution: 'bundler', target: 'ES2022', strict: true, skipLibCheck: false, noEmit: true, lib: ['ES2022', 'DOM', 'DOM.Iterable'], types: ['svelte'] }, include: ['*.ts', '*.svelte'] }));
-run('node', [resolve(root, 'node_modules/svelte-check/bin/svelte-check'), '--workspace', view, '--tsconfig', resolve(view, 'tsconfig.json')]);
+// Run the checker beside its Svelte peer so it cannot load the source checkout's ambient types.
+run('node', [resolve(view, 'node_modules/svelte-check/bin/svelte-check'), '--workspace', view, '--tsconfig', resolve(view, 'tsconfig.json')], view);
 writeFileSync(resolve(view, 'main.ts'), "import { mount } from 'svelte'; import Editor from './PackedEditor.svelte'; mount(Editor, { target: document.body });");
 writeFileSync(resolve(view, 'index.html'), '<html><head><title>Packed editor</title></head><body><script type="module" src="/main.ts"></script></body></html>');
 await viteBuild({ root: view, configFile: false, plugins: [svelte()], resolve: { dedupe: ['svelte', 'exemplara-core', 'exemplara-svelte', 'nanostores'] }, build: { outDir: 'build', minify: false } });

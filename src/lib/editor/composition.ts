@@ -41,7 +41,12 @@ export function toCoreComposition(
     ...composition,
     plugins: composition.plugins.map(({ core, setup: _view, ...metadata }) => ({
       ...metadata,
-      setup: core?.setup ?? (() => {}),
+      metadataOnly: !core,
+      setup: core
+        ? core.id === metadata.id
+          ? core.setup
+          : (api) => api.installCore(core)
+        : () => {},
     })),
   });
 }

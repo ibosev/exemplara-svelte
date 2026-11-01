@@ -17,7 +17,7 @@
     containerPresentation,
     nodePresentation,
   } from '../renderer/presentation.js';
-  import { styleString } from '../renderer/escape.js';
+  import { escapeHtml, styleString } from '../renderer/escape.js';
   import {
     losslessHtmlAttributes,
     losslessHtmlTag,
@@ -198,7 +198,7 @@
   const leafHtml = $derived.by(() => {
     if (isContainer || hasSlots) return '';
     const entry = editor.renderRuntime.renderers.get(node.type);
-    if (!entry) return `<em style="color:#999">unknown: ${node.type}</em>`;
+    if (!entry) return `<em style="color:#999">unknown: ${escapeHtml(node.type)}</em>`;
     const ctx: RenderContext = {
       dataContext: currentDataContext,
       sources,

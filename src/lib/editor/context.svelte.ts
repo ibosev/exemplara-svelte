@@ -126,12 +126,6 @@ export class EditorContext {
           renderRuntime: this.renderRuntime,
           iconRegistry: this.iconRegistry,
           core: this.session.extensions,
-          extensionIds: this.composition.plugins.map((p) => p.id),
-          installedPlugins: init.session
-            ? this.session.composition.plugins.flatMap((p) => { const view = this.composition.plugins.find(v => v.id === p.id); return view?.core ? [p.id, view.core.id] : [p.id]; })
-            : this.composition.plugins.flatMap((p) =>
-                p.core ? [p.core.id] : [],
-              ),
           editor: () => this,
         },
       );
@@ -415,29 +409,26 @@ export class EditorContext {
   getDefinition(
     ...args: Parameters<EditorSession["getDefinition"]>
   ): ReturnType<EditorSession["getDefinition"]> {
-    this.track();
+    this.#values.registryRevision.current;
     return this.session.getDefinition(...args);
   }
   get expressionRuntime() {
-    this.track();
     return this.session.expressionRuntime;
   }
   hasPlugin(
     ...args: Parameters<EditorSession["hasPlugin"]>
   ): ReturnType<EditorSession["hasPlugin"]> {
-    this.track();
     return this.session.hasPlugin(...args);
   }
   isProvidedCapabilityEnabled(
     ...args: Parameters<EditorSession["isProvidedCapabilityEnabled"]>
   ): ReturnType<EditorSession["isProvidedCapabilityEnabled"]> {
-    this.track();
     return this.session.isProvidedCapabilityEnabled(...args);
   }
   autocompleteSuggestions(
     ...args: Parameters<EditorSession["autocompleteSuggestions"]>
   ): ReturnType<EditorSession["autocompleteSuggestions"]> {
-    this.track();
+    this.#values.doc.current;
     return this.session.autocompleteSuggestions(...args);
   }
   setHostStatus(
@@ -467,7 +458,8 @@ export class EditorContext {
   isDarkChrome(
     ...args: Parameters<EditorSession["isDarkChrome"]>
   ): ReturnType<EditorSession["isDarkChrome"]> {
-    this.track();
+    this.#values.hostThemeRevision.current;
+    this.#values.dark.current;
     return this.session.isDarkChrome(...args);
   }
   toggleChromeTheme(
@@ -485,7 +477,8 @@ export class EditorContext {
   isPanelCompact(
     ...args: Parameters<EditorSession["isPanelCompact"]>
   ): ReturnType<EditorSession["isPanelCompact"]> {
-    this.track();
+    this.#values.leftPanelCompact.current;
+    this.#values.rightPanelCompact.current;
     return this.session.isPanelCompact(...args);
   }
   setPanelCompact(
@@ -599,7 +592,7 @@ export class EditorContext {
   getDataContext(
     ...args: Parameters<EditorSession["getDataContext"]>
   ): ReturnType<EditorSession["getDataContext"]> {
-    this.track();
+    this.#values.doc.current;
     return this.session.getDataContext(...args);
   }
   addComponent(

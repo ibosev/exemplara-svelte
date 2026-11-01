@@ -78,10 +78,6 @@ export class EditorContext {
                 renderRuntime: this.renderRuntime,
                 iconRegistry: this.iconRegistry,
                 core: this.session.extensions,
-                extensionIds: this.composition.plugins.map((p) => p.id),
-                installedPlugins: init.session
-                    ? this.session.composition.plugins.flatMap((p) => { const view = this.composition.plugins.find(v => v.id === p.id); return view?.core ? [p.id, view.core.id] : [p.id]; })
-                    : this.composition.plugins.flatMap((p) => p.core ? [p.core.id] : []),
                 editor: () => this,
             });
             this.session.extensions.start(this.session);
@@ -352,23 +348,20 @@ export class EditorContext {
         return this.session.applyDragPayload(...args);
     }
     getDefinition(...args) {
-        this.track();
+        this.#values.registryRevision.current;
         return this.session.getDefinition(...args);
     }
     get expressionRuntime() {
-        this.track();
         return this.session.expressionRuntime;
     }
     hasPlugin(...args) {
-        this.track();
         return this.session.hasPlugin(...args);
     }
     isProvidedCapabilityEnabled(...args) {
-        this.track();
         return this.session.isProvidedCapabilityEnabled(...args);
     }
     autocompleteSuggestions(...args) {
-        this.track();
+        this.#values.doc.current;
         return this.session.autocompleteSuggestions(...args);
     }
     setHostStatus(...args) {
@@ -388,7 +381,8 @@ export class EditorContext {
         return this.session.clearHistoricalPreview(...args);
     }
     isDarkChrome(...args) {
-        this.track();
+        this.#values.hostThemeRevision.current;
+        this.#values.dark.current;
         return this.session.isDarkChrome(...args);
     }
     toggleChromeTheme(...args) {
@@ -400,7 +394,8 @@ export class EditorContext {
         return this.session.openPanel(...args);
     }
     isPanelCompact(...args) {
-        this.track();
+        this.#values.leftPanelCompact.current;
+        this.#values.rightPanelCompact.current;
         return this.session.isPanelCompact(...args);
     }
     setPanelCompact(...args) {
@@ -476,7 +471,7 @@ export class EditorContext {
         return this.session.setDataPreview(...args);
     }
     getDataContext(...args) {
-        this.track();
+        this.#values.doc.current;
         return this.session.getDataContext(...args);
     }
     addComponent(...args) {
